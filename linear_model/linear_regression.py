@@ -17,8 +17,10 @@ class LinearRegression(object):
 
         assert len(X.shape) is 2
         n_examples, n_features = X.shape
+        n_outputs = y.shape[1]
 
-        self.init_params(n_features)
+        assert len(y.shape) is 2
+        self.init_params(n_features, n_outputs)
 
         self.pred = T.dot(self.X, self.W) + self.b
         self.error = self.cost()
@@ -30,15 +32,15 @@ class LinearRegression(object):
             [self.X, self.Y], updates=self.updates
         )
 
-    def init_params(self, n_features, variance=0.01):
-        self.W = sharedX(np.random.randn(n_features, 1) * variance)
-        self.b = sharedX(np.zeros(1))
+    def init_params(self, n_features, n_outputs=1, variance=0.01):
+        self.W = sharedX(np.random.randn(n_features, n_outputs) * variance)
+        self.b = sharedX(np.zeros(n_outputs))
         self.params = [self.W, self.b]
 
     def cost(self):
         return MSE(self.Y, self.pred)
 
-    def fit(self, X, y, epochs=10):
+    def fit(self, X, y, epochs=100):
         X = np.atleast_2d(downcast_float(X))
         y = np.atleast_2d(downcast_float(y)).T
 
@@ -61,4 +63,4 @@ if __name__ == "__main__":
     model.fit(X, y)
 
     X = np.linspace(0, 1, 100)
-    print model.predict(X)
+    print X, model.predict(X)
