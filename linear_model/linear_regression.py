@@ -6,11 +6,10 @@ import numpy as np
 from utils import sharedX, downcast_float
 from utils.costs import MSE
 from utils.updates import SGD
-from base import ScikitModel
 
-class LinearRegression(ScikitModel):
+class LinearRegression(object):
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         self.X = T.fmatrix()
         self.Y = T.fmatrix()
 
@@ -74,4 +73,4 @@ if __name__ == "__main__":
     model.fit(X, y)
 
     X = np.linspace(0, 1, 100)
-    print X, model.predict(X)
+    model.predict(X)
