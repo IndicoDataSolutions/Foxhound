@@ -6,8 +6,9 @@ import numpy as np
 from utils import sharedX, downcast_float
 from utils.costs import MSE
 from utils.updates import SGD
+from base import ScikitModel
 
-class LinearRegression(object):
+class LinearRegression(ScikitModel):
 
     def __init__(self):
         self.X = T.fmatrix()
@@ -53,6 +54,16 @@ class LinearRegression(object):
     def predict(self, X):
         X = np.atleast_2d(downcast_float(X))
         return self.fprop(X)
+
+    def decision_function(self, *args, **kwargs):
+        return self.predict(X, *args, **kwargs)
+
+    def get_params(self):
+        return (self.W.get_value(), self.W.get_value())
+
+    def set_params(self, **params):
+        for k, v in params.values():
+            getattr(self, k).set_value(v)
 
 
 if __name__ == "__main__":
