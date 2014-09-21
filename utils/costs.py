@@ -10,6 +10,9 @@ def binary_crossentropy(target, pred):
 def mean_squared_error(target, pred):
 	return T.sqr(pred - target).mean()
 
+def mean_absolute_error(target, pred):
+    return T.abs(pred - target).mean()
+
 # aliasing
 CCE = categorical_crossentropy
 BCE = binary_crossentropy
