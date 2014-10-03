@@ -1,3 +1,4 @@
 from linear_model.linear_regression import LinearRegression
 from linear_model.ridge_regression import RidgeRegression
 from linear_model.lasso_regression import LassoRegression
+from linear_model.elastic_net import ElasticNet
