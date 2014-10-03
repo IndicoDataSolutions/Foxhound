@@ -63,14 +63,3 @@ class LinearRegression(object):
     def set_params(self, **params):
         for k, v in params.values():
             getattr(self, k).set_value(v)
-
-
-if __name__ == "__main__":
-    X = np.random.random((100, 100))
-    y = X.sum(axis=1)
-
-    model = LinearRegression()
-    model.fit(X, y)
-
-    X = np.linspace(0, 1, 100)
-    model.predict(X)
