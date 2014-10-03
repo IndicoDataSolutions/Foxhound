@@ -10,6 +10,7 @@ from utils.updates import SGD
 class LinearRegression(object):
 
     def __init__(self, *args, **kwargs):
+        self.__dict__.update(kwargs)
         self.X = T.fmatrix()
         self.Y = T.fmatrix()
 
