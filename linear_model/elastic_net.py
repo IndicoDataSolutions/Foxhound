@@ -5,13 +5,12 @@ from utils.costs import MSE
 
 class ElasticNet(LinearRegression):
 
-    def __init__(self, alpha=1.0, l1_ratio=0.5, *args, **kwargs):
+    def __init__(self, l1=0.5, l2=0.25, *args, **kwargs):
         LinearRegression.__init__(self, *args, **kwargs)
-        self.alpha = alpha
-        self.l1_ratio = l1_ratio
-        self.l2_ratio = 1 - l1_ratio
+        self.l1 = l1
+        self.l2 = l2
 
     def cost(self):
         return (MSE(self.Y, self.pred) + 
-                self.alpha * self.l1_ratio * MAE(self.W, 0) + 
-                self.alpha * self.l2_ratio * MSE(self.W, 0))
+                self.l1 * MAE(self.W, 0) + 
+                self.l2 * MSE(self.W, 0))
