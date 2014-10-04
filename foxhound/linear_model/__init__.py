@@ -1,0 +1,11 @@
+from foxhound.linear_model.linear_model import LinearModel
+from foxhound.linear_model.linear_regression import LinearRegression
+from foxhound.linear_model.ridge_regression import RidgeRegression
+from foxhound.linear_model.lasso_regression import LassoRegression
+from foxhound.linear_model.elastic_net import ElasticNet
+from foxhound.linear_model.logistic_regression import LogisticRegression
+from foxhound.linear_model.softmax_regression import SoftmaxRegression
+
+# aliasing
+SoftmaxClassification = SoftmaxRegression
+LogisticClassification = LogisticRegression
