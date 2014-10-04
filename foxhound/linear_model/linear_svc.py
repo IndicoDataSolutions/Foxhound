@@ -11,7 +11,8 @@ class LinearSVC(LinearModel):
         try:
             self.cost_function = valid_cost_functions[cost]
         except KeyError:
-            raise ValueError("User inputed cost function '%s' not valid for %s model."%(cost, self.__class__.__name__))
+            raise ValueError("User inputed cost function '%s' not valid for %s model."
+                             %(cost, self.__class__.__name__))
 
     def cost(self):
         return self.cost_function(self.Y,self.pred)
