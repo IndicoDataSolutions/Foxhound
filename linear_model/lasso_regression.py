@@ -1,5 +1,3 @@
-import numpy as np
-
 from linear_model import LinearRegression
 from utils.costs import MSE
 
@@ -10,4 +8,7 @@ class LassoRegression(LinearRegression):
         self.alpha = alpha
 
     def cost(self):
-        return MSE(self.Y, self.pred) + self.alpha * MAE(self.W, 0)
+        return MSE(self.Y, self.pred)
+
+    def regularization(self):
+        return self.alpha * MAE(self.W, 0)

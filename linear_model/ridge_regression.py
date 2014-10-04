@@ -10,4 +10,7 @@ class RidgeRegression(LinearRegression):
         self.alpha = alpha
 
     def cost(self):
-        return MSE(self.Y, self.pred) + self.alpha * MSE(self.W, 0)
+        return MSE(self.Y, self.pred)
+
+    def regularization(self):
+        return self.alpha * MSE(self.W, 0)

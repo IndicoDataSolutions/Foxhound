@@ -1,5 +1,3 @@
-import numpy as np
-
 from linear_model import LinearRegression
 from utils.costs import MSE
 
@@ -10,7 +8,5 @@ class ElasticNet(LinearRegression):
         self.l1 = l1
         self.l2 = l2
 
-    def cost(self):
-        return (MSE(self.Y, self.pred) + 
-                self.l1 * MAE(self.W, 0) + 
-                self.l2 * MSE(self.W, 0))
+    def regularization(self):
+        return self.l1 * MAE(self.W, 0) + self.l2 * MSE(self.W, 0)
