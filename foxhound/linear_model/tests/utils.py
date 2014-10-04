@@ -21,14 +21,14 @@ def test_train_model(model, *args, **kwargs):
 	preds = model.predict(X)
 	assert not np.any(np.isnan(preds))
 
-def test_repeatable_model(model, *args, **kwargs):
+def test_repeatable_model(model, train=None, test=None, *args, **kwargs):
 	models = [model(rng=RandomState(0), *args, **kwargs) for i in range(2)]
-	X, y = generate_dataset()
+	X, y = train or generate_dataset()
 
 	for model in models:
 		model.fit(X, y)
 
-	X = generate_datapoint()
+	X = test or generate_datapoint()
 	results = [model.predict(X) for model in models]
 	print results
 	assert np.allclose(results[0], results[1])

@@ -12,7 +12,7 @@ class LinearModel(object):
         self.__dict__.update(kwargs)
         self.X = T.fmatrix()
         self.Y = T.fmatrix()
-        self.rng = rng if rng else np.random.RandomState()
+        self.rng = rng or np.random.RandomState()
 
     def setup(self, X, y):
 
