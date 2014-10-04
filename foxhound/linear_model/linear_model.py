@@ -8,10 +8,11 @@ from foxhound.utils.updates import SGD
 
 class LinearModel(object):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, rng=None, *args, **kwargs):
         self.__dict__.update(kwargs)
         self.X = T.fmatrix()
         self.Y = T.fmatrix()
+        self.rng = rng if rng else np.random.RandomState()
 
     def setup(self, X, y):
 
@@ -33,7 +34,7 @@ class LinearModel(object):
         )
 
     def init_params(self, n_features, n_outputs=1, variance=0.01):
-        self.W = sharedX(np.random.randn(n_features, n_outputs) * variance)
+        self.W = sharedX(self.rng.randn(n_features, n_outputs) * variance)
         self.b = sharedX(np.zeros(n_outputs))
         self.params = [self.W, self.b]
 
