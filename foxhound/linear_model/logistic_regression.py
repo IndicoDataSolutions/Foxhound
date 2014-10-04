@@ -1,12 +1,12 @@
 import theano.tensor as T
 
 from foxhound.linear_model import LinearModel
-from foxhound.utils.costs import BCE
+from foxhound.utils.costs import BCE, MAE, MSE
 
 class LogisticRegression(LinearModel):
 
     def __init__(self, l1=0.0, l2=1.0, *args, **kwargs):
-        LinearRegression.__init__(self, *args, **kwargs)
+        LinearModel.__init__(self, *args, **kwargs)
         self.l1 = l1
         self.l2 = l2
 

@@ -1,5 +1,5 @@
 from foxhound.linear_model import LinearRegression
-from foxhound.utils.costs import MSE
+from foxhound.utils.costs import MSE, MAE
 
 class ElasticNet(LinearRegression):
 
