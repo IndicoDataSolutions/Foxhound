@@ -4,7 +4,7 @@ from theano.compat import OrderedDict
 import numpy as np
 
 from foxhound.utils import sharedX, downcast_float
-from foxhound.utils.updates import SGD
+from foxhound.utils.updates import SGD,Adadelta
 
 class LinearModel(object):
 
@@ -26,7 +26,7 @@ class LinearModel(object):
         self.pred = self.activation(T.dot(self.X, self.W) + self.b)
         self.error = self.cost() + self.regularization()
         self.grads = T.grad(self.error, self.params)
-        self.updates = SGD(self.params, self.grads, lr=self.lr)
+        self.updates = Adadelta(self.params, self.grads, lr=self.lr)
 
         self.fprop = theano.function([self.X], self.pred)
         self.train = theano.function(
@@ -47,14 +47,17 @@ class LinearModel(object):
     def regularization(self):
         return 0
 
-    def fit(self, X, y, lr=0.01, epochs=100):
+    def fit(self, X, y, lr=1., epochs=100, batch_size=128):
         self.lr = lr
         X = np.atleast_2d(downcast_float(X))
-        y = np.atleast_2d(downcast_float(y)).T
+        y = np.atleast_2d(downcast_float(y))
 
         self.setup(X, y)
         for epoch in xrange(epochs):
-            self.train(X, y)
+            for b in range(len(X)/batch_size):
+                start = b*batch_size
+                end = (b+1)*batch_size
+                self.train(X[start:end], y[start:end])
 
         return self
 
