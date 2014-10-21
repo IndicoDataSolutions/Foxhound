@@ -1,6 +1,8 @@
 import theano
 import theano.tensor as T
 
+# def maxnorm(p,norm=4.):
+
 def SGD(params,grads,lr=0.01):
 	updates = []
 	for p,g in zip(params,grads):

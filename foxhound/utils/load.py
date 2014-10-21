@@ -30,6 +30,8 @@ from skimage.transform import resize
 import random
 import re
 
+from foxhound.utils import floatX
+
 # change to where datasets are kept for you
 datasets_dir = '/media/datasets/'
 
@@ -135,31 +137,34 @@ def mnist(ntrain=60000,ntest=10000,onehot=False):
 	data_dir = os.path.join(datasets_dir,'mnist')
 	fd = open(os.path.join(data_dir,'train-images.idx3-ubyte'))
 	loaded = np.fromfile(file=fd,dtype=np.uint8)
-	trainX = loaded[16:].reshape((60000,28*28)).astype(float)
+	trX = loaded[16:].reshape((60000,28*28)).astype(float)
 
 	fd = open(os.path.join(data_dir,'train-labels.idx1-ubyte'))
 	loaded = np.fromfile(file=fd,dtype=np.uint8)
-	trainY = loaded[8:].reshape((60000))
+	trY = loaded[8:].reshape((60000))
 
 	fd = open(os.path.join(data_dir,'t10k-images.idx3-ubyte'))
 	loaded = np.fromfile(file=fd,dtype=np.uint8)
-	testX = loaded[16:].reshape((10000,28*28)).astype(float)
+	teX = loaded[16:].reshape((10000,28*28)).astype(float)
 
 	fd = open(os.path.join(data_dir,'t10k-labels.idx1-ubyte'))
 	loaded = np.fromfile(file=fd,dtype=np.uint8)
-	testY = loaded[8:].reshape((10000))
+	teY = loaded[8:].reshape((10000))
 
-	trainX = trainX/255.
-	testX = testX/255.
+	trX = trX/255.
+	teX = teX/255.
 
-	trainX = trainX[:ntrain]
-	trainY = trainY[:ntrain]
+	trX = trX[:ntrain]
+	trY = trY[:ntrain]
 
-	testX = testX[:ntest]
-	testY = testY[:ntest]
+	teX = teX[:ntest]
+	teY = teY[:ntest]
 
 	if onehot:
-		trainY = one_hot(trainY)
-		testY = one_hot(testY)
+		trY = one_hot(trY)
+		teY = one_hot(teY)
+	else:
+		trY = np.asarray(trY)
+		teY = np.asarray(teY)
 
-	return trainX,testX,trainY,testY
+	return trX,teX,trY,teY

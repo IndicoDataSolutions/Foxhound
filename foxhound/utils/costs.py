@@ -2,7 +2,10 @@ import theano
 import theano.tensor as T
 
 def categorical_crossentropy(target, pred):
-	return T.nnet.categorical_crossentropy(pred, target).mean()
+	if target.type is T.ivector:
+		return -T.mean(T.log(pred)[T.arange(target.shape[0]), target])
+	else:
+		return T.nnet.categorical_crossentropy(pred, target).mean()
 
 def binary_crossentropy(target, pred):
 	return T.nnet.binary_crossentropy(pred, target).mean()

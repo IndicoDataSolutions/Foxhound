@@ -3,12 +3,12 @@ from foxhound.utils.costs import MSE, MAE
 
 class LassoRegression(LinearRegression):
 
-    def __init__(self, alpha=1.0, *args, **kwargs):
+    def __init__(self, l1=1.0, *args, **kwargs):
         LinearRegression.__init__(self, *args, **kwargs)
-        self.alpha = alpha
+        self.l1 = l1
 
     def cost(self):
         return MSE(self.Y, self.pred)
 
     def regularization(self):
-        return self.alpha * MAE(self.W, 0)
+        return self.l1 * MAE(self.W, 0)
