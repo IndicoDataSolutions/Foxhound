@@ -18,10 +18,12 @@ def Momentum(params,grads,lr,momentum):
 		updates.append((p,p+v))
 	return updates
 
-def NAG(params,grads,lr,momentum):
+def NAG(params,grads,lr,momentum, l2=0.):
 	updates = []
 	for p,g in zip(params,grads):
 		m = theano.shared(p.get_value()*0.)
+		if l2 != 0:
+			g = g + l2*p
 		v = momentum*m-lr*g
 		w = p + momentum*v-lr*g
 		updates.append((m,v))

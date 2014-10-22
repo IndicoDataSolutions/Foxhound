@@ -14,10 +14,12 @@ def cosine(a, b, e=1e-6):
 # 	return T.sqrt(T.sum(T.sqr(a-b), axis=1))
 
 def euclidean(x, y):
-	xx = T.sqrt(T.sum(T.square(x), axis=1))
-	yy = T.sqrt(T.sum(T.square(y), axis=1))
-	dist = -2*T.dot(x, y.T)
+	xx = T.sqr(T.sqrt((x*x).sum(axis=1)))
+	yy = T.sqr(T.sqrt((y*y).sum(axis=1)))
+	dist = T.dot(x, y.T)
+	dist *= -2
 	dist += xx.dimshuffle(0, 'x')
 	dist += yy.dimshuffle('x', 0)
-	dist += yy
+	dist = T.sqrt(T.maximum(dist, 1e-6))
+	# return theano.function([x,y], dist)
 	return dist
