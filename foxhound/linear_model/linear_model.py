@@ -3,7 +3,7 @@ import theano.tensor as T
 from theano.compat import OrderedDict
 import numpy as np
 
-from foxhound.utils import sharedX, downcast_float
+from foxhound.utils import sharedX, floatX, iter_data, shuffle
 from foxhound.utils.updates import SGD,Adadelta
 
 class LinearModel(object):
@@ -14,13 +14,13 @@ class LinearModel(object):
         self.Y = T.fmatrix()
         self.rng = rng if rng else np.random.RandomState()
 
-    def setup(self, X, y):
+    def setup(self, X, Y):
 
         assert len(X.shape) is 2
         n_examples, n_features = X.shape
-        n_outputs = y.shape[1]
+        n_outputs = Y.shape[1]
 
-        assert len(y.shape) is 2
+        assert len(Y.shape) is 2
         self.init_params(n_features, n_outputs)
 
         self.pred = self.activation(T.dot(self.X, self.W) + self.b)
@@ -47,22 +47,20 @@ class LinearModel(object):
     def regularization(self):
         return 0
 
-    def fit(self, X, y, lr=1., epochs=100, batch_size=128):
+    def fit(self, X, Y, lr=1., epochs=100, batch_size=128):
         self.lr = lr
-        X = np.atleast_2d(downcast_float(X))
-        y = np.atleast_2d(downcast_float(y))
+        X = np.atleast_2d(floatX(X))
+        Y = np.atleast_2d(floatX(Y))
 
-        self.setup(X, y)
+        self.setup(X, Y)
         for epoch in xrange(epochs):
-            for b in range(len(X)/batch_size):
-                start = b*batch_size
-                end = (b+1)*batch_size
-                self.train(X[start:end], y[start:end])
+            for bX, bY in iter_data(X, Y, size=batch_size, shuffle=True):
+                self.train(bX, bY)
 
         return self
 
     def predict(self, X):
-        X = np.atleast_2d(downcast_float(X))
+        X = np.atleast_2d(floatX(X))
         return self.fprop(X)
 
     def decision_function(self, *args, **kwargs):
