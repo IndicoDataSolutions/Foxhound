@@ -21,5 +21,4 @@ def euclidean(x, y):
 	dist += xx.dimshuffle(0, 'x')
 	dist += yy.dimshuffle('x', 0)
 	dist = T.sqrt(T.maximum(dist, 1e-6))
-	# return theano.function([x,y], dist)
 	return dist

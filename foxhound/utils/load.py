@@ -19,11 +19,11 @@ from scipy.misc import imread,imsave
 from scipy.io import loadmat
 from scipy.spatial.distance import cdist
 
-from cv2 import imread as cv2_imread
-from cv2 import resize as cv2_resize
-from cv2 import INTER_AREA,INTER_LINEAR
-from cv2 import cvtColor
-from cv2 import COLOR_BGR2RGB
+# from cv2 import imread as cv2_imread
+# from cv2 import resize as cv2_resize
+# from cv2 import INTER_AREA,INTER_LINEAR
+# from cv2 import cvtColor
+# from cv2 import COLOR_BGR2RGB
 
 from skimage.transform import resize
 
@@ -33,7 +33,7 @@ import re
 from foxhound.utils import floatX
 
 # change to where datasets are kept for you
-datasets_dir = '/media/datasets/'
+datasets_dir = '/home/mmay/data/'
 
 def sort(l):
 	convert = lambda text: int(text) if text.isdigit() else text
@@ -119,12 +119,11 @@ def lfw(n_imgs=1000,flatten=True):
 	return imgs,Y,n_to_i,i_to_n
 
 def img_load(path,w,h,resize=True):
-	img = cv2_imread(path)
+	img = skimage.io.imread(path)
 	if len(img.shape) == 2:
 		img = np.dstack((img,img,img))
 	if resize:
-		img = cv2_resize(img,(w,h)).astype(np.uint8)
-	img = cvtColor(img,COLOR_BGR2RGB)
+		img = skimage.transform.resize(img,(w,h)).astype(np.uint8)
 	return img
 
 def load_imagenet_img(path,w=32,h=32,resize=True):
