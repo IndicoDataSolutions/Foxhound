@@ -17,4 +17,4 @@ class LogisticRegression(LinearModel):
         return BCE(self.Y, self.pred)
 
     def regularization(self):
-		return self.l1 * MAE(self.W, 0) + self.l2 * MSE(self.W, 0)
+	return self.l1 * MAE(self.W, 0) + self.l2 * MSE(self.W, 0)
