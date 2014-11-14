@@ -23,7 +23,7 @@ def floatX(X):
     return np.asarray(X, dtype=theano.config.floatX)
 
 def sharedX(X, dtype=theano.config.floatX):
-    return theano.shared(np.asarray(X, dtype=dtype))
+    return theano.shared(np.asarray(X, dtype=dtype), borrow=True)
 
 def downcast_float(X):
     return np.asarray(X, dtype=np.float32)
