@@ -11,29 +11,47 @@ from foxhound.utils.costs import categorical_crossentropy
 from foxhound.utils.updates import Adadelta, NAG
 from foxhound.utils.activations import rectify, tanh, softmax
 
+srng = RandomStreams()
+
+tensor_map = {
+    2:T.matrix(),
+    3:T.tensor3(),
+    4:T.tensor4(),
+}
+
+def dropout(X, p=0.):
+    if p > 0:
+        retain_prob = 1 - p
+        X *= srng.binomial(X.shape, p=retain_prob, dtype=theano.config.floatX)
+        X /= retain_prob
+    return X
+
 class Input(object):
-    def __init__(self, ndim=2):
-        self.X = T.TensorType(theano.config.floatX, (False,)*ndim)
-        self.output_shape = [784]
+    def __init__(self, shape):
+        self.X = tensor_map[len(shape)]
+        self.output_shape = shape[1:]
 
     def output(self, dropout_active=True):
         return self.X
 
 class Dense(object):
-    def __init__(self, size, activation=rectify, p_drop=0., w_std=0.01, b_init=0.):
+    def __init__(self, size=512, activation=rectify, p_drop=0., w_std=0.01, b_init=0.):
         self.activation = activation
         self.p_drop = p_drop
-        self.output_shape = [size]
-        print 
-        print l_in.output_shape
-        print self.output_shape
+        self.size = size
+        self.b_init = b_init
+        self.w_std = w_std
 
     def connect(self, l_in):
         self.l_in = l_in
         self.n_in = np.prod(l_in.output_shape)
-        self.w = sharedX(np.random.randn(self.n_in, size) * w_std)
-        self.b = sharedX(np.ones(size) * b_init)
+        self.w = sharedX(np.random.randn(self.n_in, self.size) * self.w_std)
+        self.b = sharedX(np.ones(self.size) * self.b_init)
         self.params = [self.w, self.b]
+        self.output_shape = (self.size,)
+        print 
+        print 'in  shape', l_in.output_shape
+        print 'out shape',self.output_shape
 
     def output(self, dropout_active=True):
         X = self.l_in.output(dropout_active=dropout_active)

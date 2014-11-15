@@ -5,3 +5,4 @@ rectify = lambda x: (x + abs(x)) / 2.0
 tanh = T.tanh
 softmax = T.nnet.softmax
 sigmoid = T.nnet.sigmoid
+linear = lambda x:x
