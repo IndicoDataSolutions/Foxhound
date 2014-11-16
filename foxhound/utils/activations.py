@@ -1,8 +1,11 @@
 import theano
 import theano.tensor as T
 
+def softmax(x):
+    e_x = T.exp(x - x.max(axis=1).dimshuffle(0, 'x'))
+    return e_x / e_x.sum(axis=1).dimshuffle(0, 'x')
+
 rectify = lambda x: (x + abs(x)) / 2.0
 tanh = T.tanh
-softmax = T.nnet.softmax
 sigmoid = T.nnet.sigmoid
-linear = lambda x:x
+linear = lambda x: x

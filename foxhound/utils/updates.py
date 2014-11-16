@@ -1,15 +1,19 @@
 import theano
 import theano.tensor as T
 
-# def maxnorm(p,norm=4.):
+def max_norm(w, n):
+	norms = T.sqrt(T.sum(T.sqr(w), axis=0))
+	desired = T.clip(norms, 0, n)
+	w = w * (desired/ (1e-7 + norms))
+	return w
 
-def SGD(params,grads,lr=0.01):
+def sgd(params, grads, lr=0.01):
 	updates = []
 	for p,g in zip(params,grads):
 		updates.append((p,p-lr*g))
 	return updates
 
-def Momentum(params,grads,lr,momentum):
+def momentum(params, grads, lr, momentum):
 	updates = []
 	for p,g in zip(params,grads):
 		m = theano.shared(p.get_value()*0.)
@@ -18,7 +22,7 @@ def Momentum(params,grads,lr,momentum):
 		updates.append((p,p+v))
 	return updates
 
-def NAG(params,grads,lr,momentum, l2=0.):
+def nag(params, grads, lr, momentum, l2=0.):
 	updates = []
 	for p,g in zip(params,grads):
 		m = theano.shared(p.get_value()*0.)
@@ -30,7 +34,7 @@ def NAG(params,grads,lr,momentum, l2=0.):
 		updates.append((p,w))
 	return updates
 
-def RMSprop(params,grads,lr,rho=0.9,epsilon=1e-6):
+def rmsprop(params, grads, lr, rho=0.9, epsilon=1e-6):
 	updates = []
 	for p,g in zip(params,grads):
 		acc = theano.shared(p.get_value()*0.)
@@ -39,7 +43,7 @@ def RMSprop(params,grads,lr,rho=0.9,epsilon=1e-6):
 		updates.append((p,p-lr*g/T.sqrt(acc_new + epsilon)))
 	return updates
 
-def Adadelta(params,grads,lr=1.0,rho=0.95,epsilon=1e-6):
+def adadelta(params, grads, lr=1.0, rho=0.95, epsilon=1e-6, maxnorm=2.5):
 	updates = []
 	for p,g in zip(params,grads):
 		acc = theano.shared(p.get_value()*0.)
@@ -48,7 +52,10 @@ def Adadelta(params,grads,lr=1.0,rho=0.95,epsilon=1e-6):
 		updates.append((acc,acc_new))
 
 		update = g*T.sqrt(acc_delta+epsilon)/T.sqrt(acc_new+epsilon)
-		updates.append((p,p-lr*update))
+		updated_p = p-lr*update
+		if maxnorm > 0:
+			updated_p = max_norm(updated_p, maxnorm)
+		updates.append((p, updated_p))
 
 		acc_delta_new = rho*acc_delta+(1-rho)*update**2
 		updates.append((acc_delta,acc_delta_new))

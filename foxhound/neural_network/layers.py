@@ -7,9 +7,7 @@ from time import time
 
 from foxhound.utils import floatX, sharedX, shuffle
 from foxhound.utils.load import mnist
-from foxhound.utils.costs import categorical_crossentropy
-from foxhound.utils.updates import Adadelta, NAG
-from foxhound.utils.activations import rectify, tanh, softmax
+from foxhound.utils import activations
 
 srng = RandomStreams()
 
@@ -35,8 +33,8 @@ class Input(object):
         return self.X
 
 class Dense(object):
-    def __init__(self, size=512, activation=rectify, p_drop=0., w_std=0.01, b_init=0.):
-        self.activation = activation
+    def __init__(self, size=512, activation='rectify', p_drop=0., w_std=0.01, b_init=0.):
+        self.activation = getattr(activations, activation)
         self.p_drop = p_drop
         self.size = size
         self.b_init = b_init
