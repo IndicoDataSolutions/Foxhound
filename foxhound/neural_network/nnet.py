@@ -39,6 +39,7 @@ class Net(object):
             self.layers.append(layer)
         tr_out = self.layers[-1].output(dropout_active=True)
         te_out = self.layers[-1].output(dropout_active=False)
+        te_pre_act = self.layers[-1].output(dropout_active=False, pre_act=True)
         X = self.layers[0].X
         Y = T.fmatrix()
         cost = self.cost_fn(Y, tr_out)
@@ -47,8 +48,9 @@ class Net(object):
         updates = self.update_fn(self.params, grads, lr=self.lr)
         self._train = theano.function([X, Y], cost, updates=updates)
         self._cost = theano.function([X, Y], cost)
-        self._predict = theano.function([X], te_out)
-        
+        self._predict = theano.function([X], te_out, allow_input_downcast=True)
+        self._predict_pre_act = theano.function([X], te_pre_act, allow_input_downcast=True)
+
         metric = T.eq(T.argmax(te_out, axis=1), T.argmax(Y, axis=1)).mean()
         self._metric = theano.function([X, Y], metric)
 
@@ -61,8 +63,18 @@ class Net(object):
         teX = floatX(teX)
         teY = floatX(teY)
 
+        t = time()
         for e in range(self.n_epochs):
             for x, y in iter_data(trX, trY):
                 cost = self._train(x, y)
-            print e, self._metric(teX, teY)
+            print e, self._metric(teX, teY), time() - t
             self.lr.set_value(floatX(self.lr.get_value() * self.lr_decay))
+
+    def predict_proba(self, X):
+        return self._predict(X)
+
+    def predict(self, X):
+        return np.argmax(self.predict_proba(X), axis=1)
+
+    def predict_pre_act(self, X):
+        return self._predict_pre_act(X)

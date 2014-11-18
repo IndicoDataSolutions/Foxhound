@@ -1,5 +1,6 @@
 import theano
 import theano.tensor as T
+import numpy as np
 
 def max_norm(w, n):
 	norms = T.sqrt(T.sum(T.sqr(w), axis=0))
@@ -7,9 +8,17 @@ def max_norm(w, n):
 	w = w * (desired/ (1e-7 + norms))
 	return w
 
-def sgd(params, grads, lr=0.01):
+def clip_norm(g, n):
+	norm = T.sqrt(T.sum(T.sqr(g)))
+	desired = T.clip(norm, 0, n)
+	g = g * (desired/ (1e-7 + norm))
+	return g
+
+def sgd(params, grads, lr=0.01, clipnorm=0):
 	updates = []
 	for p,g in zip(params,grads):
+		if clipnorm > 0:
+			g = clip_norm(g, clipnorm)
 		updates.append((p,p-lr*g))
 	return updates
 
