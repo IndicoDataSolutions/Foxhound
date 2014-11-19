@@ -72,7 +72,8 @@ class LinearModel(object):
         self.max_gpu_mem = max_gpu_mem
 
         X = np.atleast_2d(floatX(X))
-        Y = np.atleast_2d(floatX(Y)).T
+        if len(Y.shape) is 1:
+            Y = floatX(Y).reshape(-1, 1)
 
         self.setup(X, Y)
         for epoch in xrange(epochs):
@@ -85,15 +86,18 @@ class LinearModel(object):
         return self
 
     def predict(self, X):
-        X = np.atleast_2d(floatX(X))
+        X = floatX(X)
 
         results = []
         for chunkX in iter_data(X, size=self.chunk_size):
             self.gpuX.set_value(chunkX)
             for batch_idx in iter_indices(X, size=self.batch_size):
-                results.append(self._predict(batch_idx))
+                preds = self._predict(batch_idx)
+                if len(preds.shape) is 1:
+                    preds = preds.reshape(-1, 1)
+                results.append(preds)
 
-        return np.hstack(results)
+        return np.vstack(results)
 
     def decision_function(self, *args, **kwargs):
         return self.predict(X, *args, **kwargs)

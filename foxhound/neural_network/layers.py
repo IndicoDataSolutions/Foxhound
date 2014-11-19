@@ -48,7 +48,7 @@ class Dense(object):
         self.params = [self.w, self.b]
         self.output_shape = (self.size,)
         print 
-        print 'in  shape', l_in.output_shape
+        print 'in shape', l_in.output_shape
         print 'out shape',self.output_shape
 
     def output(self, dropout_active=True, pre_act=False):

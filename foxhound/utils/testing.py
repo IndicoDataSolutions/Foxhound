@@ -3,12 +3,12 @@ from numpy.random import RandomState
 
 
 def generate_dataset():
-	X = np.random.random((10, 10)).astype(np.float32)
+	X = np.random.random((10, 10))
 	Y = 2*X + 1
 	return X, Y
 
 def generate_datapoint():
-	X = np.random.random((1, 10)).astype(np.float32)
+	X = np.random.random((1, 10))
 	return X
 
 def test_train_model(model, *args, **kwargs):

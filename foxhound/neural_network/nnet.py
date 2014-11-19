@@ -5,12 +5,14 @@ import numpy as np
 from sklearn import metrics
 from time import time
 
-from foxhound.utils import floatX, sharedX, shuffle, iter_data
+from foxhound.utils import floatX, sharedX, shuffle, iter_data, iter_indices
 from foxhound.utils.load import mnist
 from foxhound.utils import costs
 from foxhound.utils import updates
 from foxhound.utils.activations import rectify, tanh, softmax, linear
 from foxhound.neural_network.layers import Dense, Input
+from foxhound.utils import config
+import foxhound.utils.gpu as gpu
 
 def get_params(layer):
     params = []
@@ -30,7 +32,11 @@ class Net(object):
         self.cost_fn = getattr(costs, cost)
         self.update_fn = getattr(updates, update)
 
-    def _init(self, trX, trY):
+    def setup(self, trX, trY):
+        self.chunk_size = gpu.n_chunks(self.max_gpu_mem, trX)
+        self.gpuX = sharedX(trX[:self.chunk_size])
+        self.gpuY = theano.shared(trY[:self.chunk_size])
+
         self.layers = [Input(shape=trX.shape)]
         for i, layer in enumerate(self._layers):
             if i == len(self._layers)-1:
@@ -46,16 +52,36 @@ class Net(object):
         self.params = get_params(self.layers[-1])
         grads = T.grad(cost, self.params)
         updates = self.update_fn(self.params, grads, lr=self.lr)
-        self._train = theano.function([X, Y], cost, updates=updates)
-        self._cost = theano.function([X, Y], cost)
-        self._predict = theano.function([X], te_out, allow_input_downcast=True)
-        self._predict_pre_act = theano.function([X], te_pre_act, allow_input_downcast=True)
+
+        idx = T.lscalar('idx')
+        start = idx * self.batch_size
+        end = (idx + 1) * self.batch_size
+
+        givens = {
+            X : self.gpuX[start:end],
+            Y : self.gpuY[start:end]
+        }
+
+        self._train = theano.function(
+            [idx], cost, updates=updates, givens=givens, allow_input_downcast=True
+        )
+        self._cost = theano.function(
+            [idx], cost, givens=givens, allow_input_downcast=True
+        )
+        self._predict = theano.function(
+            [idx], te_out, givens=givens, allow_input_downcast=True, on_unused_input='ignore'
+        )
+        self._predict_pre_act = theano.function(
+            [idx], te_pre_act, givens=givens, allow_input_downcast=True, on_unused_input='ignore'
+        )
 
         metric = T.eq(T.argmax(te_out, axis=1), T.argmax(Y, axis=1)).mean()
         self._metric = theano.function([X, Y], metric)
 
-    def fit(self, trX, trY, teX=None, teY=None):
-        self._init(trX, trY)
+    def fit(self, trX, trY, teX=None, teY=None, max_gpu_mem=config.max_gpu_mem, batch_size=128):
+        self.max_gpu_mem = max_gpu_mem
+        self.batch_size = batch_size
+        self.setup(trX, trY)
 
         trX = floatX(trX)
         trY = floatX(trY)
@@ -65,16 +91,28 @@ class Net(object):
 
         t = time()
         for e in range(self.n_epochs):
-            for x, y in iter_data(trX, trY):
-                cost = self._train(x, y)
-            print e, self._metric(teX, teY), time() - t
+            for chunkX, chunkY in iter_data(trX, trY, size=self.chunk_size):
+                self.gpuX.set_value(chunkX)
+                self.gpuY.set_value(chunkY)
+                for batch_idx in iter_indices(chunkX, size=self.batch_size):
+                    cost = self._train(batch_idx)
             self.lr.set_value(floatX(self.lr.get_value() * self.lr_decay))
 
     def predict_proba(self, X):
-        return self._predict(X)
+        results = []
+        for chunk in iter_data(X, size=self.chunk_size):
+            self.gpuX.set_value(chunk)
+            for batch_idx in iter_indices(chunk, size=self.batch_size):
+                results.append(self._predict(batch_idx))
+        return np.vstack(results)
 
     def predict(self, X):
         return np.argmax(self.predict_proba(X), axis=1)
 
     def predict_pre_act(self, X):
-        return self._predict_pre_act(X)
+        results = []
+        for chunk in iter_data(X, size=self.chunk_size):
+            self.gpuX.set_value(chunk)
+            for batch_idx in iter_indices(chunk, size=self.batch_size):
+                results.append(self._predict_pre_act(batch_idx))
+        return np.vstack(results)

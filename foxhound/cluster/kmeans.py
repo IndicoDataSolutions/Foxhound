@@ -71,9 +71,10 @@ class KMeans(object):
             self.gpuX.set_value(chunk)
             for batch_index in iter_indices(chunk, size=self.batch_size):
                 preds = self._predict(batch_index)
-
+                if len(preds.shape) is 1:
+                    preds = preds.reshape(-1, 1)
                 results.append(preds)
-        return np.hstack(results)
+        return np.vstack(results)
 
 if __name__ == '__main__':
     from foxhound.utils.load import mnist

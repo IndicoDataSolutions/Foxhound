@@ -1,0 +1,1 @@
+from foxhound.neural_network.nnet import Net

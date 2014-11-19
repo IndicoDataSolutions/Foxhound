@@ -22,7 +22,7 @@ def test_train_model(model, *args, **kwargs):
 	assert not np.any(np.isnan(preds))
 
 def test_repeatable_model(model, *args, **kwargs):
-	models = [model(rng=RandomState(0), *args, **kwargs) for i in range(2)]
+	models = [model(*args, **kwargs) for i in range(2)]
 	X, Y = generate_dataset()
 
 	for model in models:
