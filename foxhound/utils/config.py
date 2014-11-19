@@ -1,1 +1,1 @@
-max_gpu_mem = 2**13
+max_gpu_mem = 5e9

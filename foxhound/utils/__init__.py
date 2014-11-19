@@ -11,7 +11,7 @@ def iter_data(*data, **kwargs):
         if len(data) == 1:
             yield data[0][start:end]
         else:
-            yield [d[start:end] for d in data]  
+            yield tuple([d[start:end] for d in data]) 
 
 def iter_indices(*data, **kwargs):
     size = kwargs.get('size', 128)

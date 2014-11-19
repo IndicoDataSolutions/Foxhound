@@ -19,13 +19,14 @@ import foxhound.utils.gpu as gpu
 
 class KMeans(object):
 
-    def __init__(self, k=10, epochs=10, batch_size=128, max_gpu_mem=config.max_gpu_mem):
+    def __init__(self, k=10):
         self.k = k
-        self.batch_size = batch_size
+
+    def fit(self, X, epochs=10, batch_size=128, max_gpu_mem=config.max_gpu_mem):
         self.epochs = epochs
+        self.batch_size = batch_size
         self.max_gpu_mem = max_gpu_mem
 
-    def fit(self, X):
         X = np.atleast_2d(floatX(X))
 
         self.centers = sharedX(random.sample(X, self.k))
@@ -33,7 +34,7 @@ class KMeans(object):
         self.setup(X)
 
         for e in range(self.epochs):
-            for chunk in iter_data(X, size=self.batch_size*self.chunk_size):
+            for chunk in iter_data(X, size=self.chunk_size):
                 self.gpuX.set_value(chunk)
                 for batch_index in iter_indices(chunk, size=self.batch_size):
                     err = self._train(batch_index)
@@ -41,8 +42,8 @@ class KMeans(object):
     def setup(self, data):
 
         # calculate chunk sizes
-        self.chunk_size = gpu.n_chunks(self.max_gpu_mem, self.batch_size, data) 
-        self.gpuX = sharedX(data[:self.batch_size*self.chunk_size])
+        self.chunk_size = gpu.n_chunks(self.max_gpu_mem, data) 
+        self.gpuX = sharedX(data[:self.chunk_size])
 
         X = T.matrix()
         out = euclidean(X, self.centers)
@@ -63,17 +64,22 @@ class KMeans(object):
         self._train = theano.function([idx], err, givens=givens, updates=updates)
 
     def predict(self, X):
+        X = np.atleast_2d(floatX(X))
+
         results = []
-        for chunk in iter_data(X, size=self.batch_size*self.chunk_size):
+        for chunk in iter_data(X, size=self.chunk_size):
+            self.gpuX.set_value(chunk)
             for batch_index in iter_indices(chunk, size=self.batch_size):
-                results.append(self._predict(batch_index))
-        return np.vstack(results)
+                preds = self._predict(batch_index)
+
+                results.append(preds)
+        return np.hstack(results)
 
 if __name__ == '__main__':
     from foxhound.utils.load import mnist
 
     trX, teX, trY, teY = mnist()
 
-    kmeans = KMeans(k=10, batch_size=128, max_gpu_mem=5e9)
+    kmeans = KMeans(k=10)
     kmeans.fit(trX)
-    kmeans.predict(teX)
+    print kmeans.predict(teX)
