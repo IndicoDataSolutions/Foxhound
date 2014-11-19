@@ -2,8 +2,8 @@ from setuptools import setup, find_packages
 
 setup(
 	name='foxhound', 
-	version='0.1'
-    packages=find_packages()
+	version='0.1',
+    packages=find_packages(),
     description="""
         Scikit learn inspired library for gpu-accelerated machine learning
     """,

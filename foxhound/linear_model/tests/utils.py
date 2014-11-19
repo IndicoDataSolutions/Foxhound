@@ -4,7 +4,7 @@ from numpy.random import RandomState
 
 def generate_dataset():
 	X = np.random.random((10, 10))
-	Y = X.sum(axis=1)
+	Y = 2*X + 1
 	return X, Y
 
 def generate_datapoint():
