@@ -1,7 +1,7 @@
 from foxhound.linear_model import LinearModel
-from foxhound.utils.costs import MSE
+from foxhound.utils.costs import mse
 
 class LinearRegression(LinearModel):
 
     def cost(self):
-        return MSE(self.Y, self.pred)
+        return mse(self.Y, self.pred)

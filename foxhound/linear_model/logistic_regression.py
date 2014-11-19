@@ -1,7 +1,7 @@
 import theano.tensor as T
 
 from foxhound.linear_model import LinearModel
-from foxhound.utils.costs import BCE, MAE, MSE
+from foxhound.utils.costs import bce, mae, mse
 
 class LogisticRegression(LinearModel):
 
@@ -14,7 +14,7 @@ class LogisticRegression(LinearModel):
     	return T.nnet.softmax(preactivation)
 
     def cost(self):
-        return BCE(self.Y, self.pred)
+        return bce(self.Y, self.pred)
 
     def regularization(self):
-		return self.l1 * MAE(self.W, 0) + self.l2 * MSE(self.W, 0)
+		return self.l1 * mae(self.W, 0) + self.l2 * mse(self.W, 0)

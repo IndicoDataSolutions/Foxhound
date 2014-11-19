@@ -4,8 +4,8 @@ from numpy.random import RandomState
 
 def generate_dataset():
 	X = np.random.random((10, 10))
-	y = X.sum(axis=1)
-	return X, y
+	Y = 2*X + 1
+	return X, Y
 
 def generate_datapoint():
 	X = np.random.random((1, 10))
@@ -13,9 +13,9 @@ def generate_datapoint():
 
 def test_train_model(model, *args, **kwargs):
 	model = model(*args, **kwargs)
-	X, y = generate_dataset()
+	X, Y = generate_dataset()
 
-	model.fit(X, y)
+	model.fit(X, Y)
 
 	X = generate_datapoint()
 	preds = model.predict(X)
@@ -23,12 +23,11 @@ def test_train_model(model, *args, **kwargs):
 
 def test_repeatable_model(model, *args, **kwargs):
 	models = [model(rng=RandomState(0), *args, **kwargs) for i in range(2)]
-	X, y = generate_dataset()
+	X, Y = generate_dataset()
 
 	for model in models:
-		model.fit(X, y)
+		model.fit(X, Y)
 
 	X = generate_datapoint()
 	results = [model.predict(X) for model in models]
-	print results
 	assert np.allclose(results[0], results[1])

@@ -1,7 +1,7 @@
 from foxhound.linear_model import LogisticRegression
-from foxhound.utils.costs import CCE
+from foxhound.utils.costs import cce
 
 class SoftmaxRegression(LogisticRegression):
 
 	def cost(self):
-		return CCE(self.Y, self.pred)
+		return cce(self.Y, self.pred)

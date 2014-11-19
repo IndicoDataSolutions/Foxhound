@@ -1,5 +1,5 @@
 from foxhound.linear_model import LinearRegression
-from foxhound.utils.costs import MSE, MAE
+from foxhound.utils.costs import mse, mae
 
 class LassoRegression(LinearRegression):
 
@@ -8,7 +8,7 @@ class LassoRegression(LinearRegression):
         self.l1 = l1
 
     def cost(self):
-        return MSE(self.Y, self.pred)
+        return mse(self.Y, self.pred)
 
     def regularization(self):
-        return self.l1 * MAE(self.W, 0)
+        return self.l1 * mae(self.W, 0)

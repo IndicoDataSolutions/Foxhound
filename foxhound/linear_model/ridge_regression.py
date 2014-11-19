@@ -1,5 +1,5 @@
 from foxhound.linear_model import LinearRegression
-from foxhound.utils.costs import MSE
+from foxhound.utils.costs import mse
 
 class RidgeRegression(LinearRegression):
 
@@ -8,7 +8,7 @@ class RidgeRegression(LinearRegression):
         self.alpha = alpha
 
     def cost(self):
-        return MSE(self.Y, self.pred)
+        return mse(self.Y, self.pred)
 
     def regularization(self):
-        return self.alpha * MSE(self.W, 0)
+        return self.alpha * mse(self.W, 0)

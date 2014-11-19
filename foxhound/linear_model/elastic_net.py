@@ -1,5 +1,5 @@
 from foxhound.linear_model import LinearRegression
-from foxhound.utils.costs import MSE, MAE
+from foxhound.utils.costs import mse, mae
 
 class ElasticNet(LinearRegression):
 
@@ -9,4 +9,4 @@ class ElasticNet(LinearRegression):
         self.l2 = l2
 
     def regularization(self):
-        return self.l1 * MAE(self.W, 0) + self.l2 * MSE(self.W, 0)
+        return self.l1 * mae(self.W, 0) + self.l2 * mse(self.W, 0)
