@@ -3,5 +3,5 @@ from foxhound.utils.costs import mse
 
 class LinearRegression(LinearModel):
 
-    def cost(self):
-        return mse(self.Y, self.pred)
+    def __init__(self, *args, **kwargs):
+    	LinearModel.__init__(self, cost='mse', **kwargs)

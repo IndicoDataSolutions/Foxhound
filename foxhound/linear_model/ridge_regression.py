@@ -1,14 +1,10 @@
-from foxhound.linear_model import LinearRegression
-from foxhound.utils.costs import mse
+from foxhound.linear_model import LinearModel
+from foxhound.utils.updates import Adadelta
 
-class RidgeRegression(LinearRegression):
+class RidgeRegression(LinearModel):
 
-    def __init__(self, alpha=1.0, *args, **kwargs):
-        LinearRegression.__init__(self, *args, **kwargs)
-        self.alpha = alpha
-
-    def cost(self):
-        return mse(self.Y, self.pred)
-
-    def regularization(self):
-        return self.alpha * mse(self.W, 0)
+    def __init__(self, l2=1.0, *args, **kwargs):
+    	update = Adadelta(l2=l2)
+        LinearModel.__init__(
+        	self, cost='mse', update=update, **kwargs
+        )

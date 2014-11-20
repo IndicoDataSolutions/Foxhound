@@ -99,6 +99,7 @@ class Net(object):
         teY = floatX(teY)
 
         t = time()
+        print self.n_epochs
         for e in range(self.n_epochs):
             print e
             for chunkX, chunkY in iter_data(trX, trY, size=self.chunk_size):
