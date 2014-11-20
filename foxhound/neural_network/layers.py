@@ -26,8 +26,8 @@ def dropout(X, p=0.):
 
 class Input(object):
     def __init__(self, shape):
-        self.X = tensor_map[len(shape)]
-        self.output_shape = shape[1:]
+        self.X = tensor_map[len(shape)+1]
+        self.output_shape = shape
 
     def output(self, dropout_active=True):
         return self.X

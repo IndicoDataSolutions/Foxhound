@@ -7,12 +7,15 @@ from time import time
 
 from foxhound.utils import floatX, sharedX, shuffle, iter_data, iter_indices
 from foxhound.utils.load import mnist
-from foxhound.utils import costs
-from foxhound.utils import updates
-from foxhound.utils.activations import rectify, tanh, softmax, linear
 from foxhound.neural_network.layers import Dense, Input
 from foxhound.utils import config
 import foxhound.utils.gpu as gpu
+
+from foxhound.utils import updates
+update_mapping = dict((k.lower(), k) for k in dir(updates))
+
+from foxhound.utils import costs
+cost_mapping = dict((k.lower(), k) for k in dir(costs))
 
 def get_params(layer):
     params = []
@@ -24,25 +27,32 @@ def get_params(layer):
 
 class Net(object):
 
-    def __init__(self, layers, n_epochs=100, cost='cce', update='adadelta', lr=1., lr_decay=0.995):
+    def __init__(self, layers, n_epochs=100, cost='cce', update='adadelta'):
         self._layers = layers
         self.n_epochs = n_epochs
-        self.lr = sharedX(lr)
-        self.lr_decay = lr_decay
-        self.cost_fn = getattr(costs, cost)
-        self.update_fn = getattr(updates, update)
+        self.cost_fn = getattr(costs, cost_mapping[cost])
+        if isinstance(update, basestring):
+            self.update_fn = getattr(updates, update_mapping[update])()
+        else:
+            self.update_fn = update
 
     def setup(self, trX, trY):
         self.chunk_size = gpu.n_chunks(self.max_gpu_mem, trX)
         self.gpuX = sharedX(trX[:self.chunk_size])
         self.gpuY = theano.shared(trY[:self.chunk_size])
 
-        self.layers = [Input(shape=trX.shape)]
+        if isinstance(self._layers[0], Input):
+            self.layers = [self._layers[0]]
+            self._layers = self._layers[1:]
+        else:
+            self.layers = [Input(shape=trX.shape[1:])]
+
         for i, layer in enumerate(self._layers):
             if i == len(self._layers)-1:
                 layer.size = trY.shape[1]
             layer.connect(self.layers[-1])
             self.layers.append(layer)
+
         tr_out = self.layers[-1].output(dropout_active=True)
         te_out = self.layers[-1].output(dropout_active=False)
         te_pre_act = self.layers[-1].output(dropout_active=False, pre_act=True)
@@ -50,8 +60,7 @@ class Net(object):
         Y = T.fmatrix()
         cost = self.cost_fn(Y, tr_out)
         self.params = get_params(self.layers[-1])
-        grads = T.grad(cost, self.params)
-        updates = self.update_fn(self.params, grads, lr=self.lr)
+        updates = self.update_fn.get_updates(self.params, cost)
 
         idx = T.lscalar('idx')
         start = idx * self.batch_size
@@ -91,12 +100,12 @@ class Net(object):
 
         t = time()
         for e in range(self.n_epochs):
+            print e
             for chunkX, chunkY in iter_data(trX, trY, size=self.chunk_size):
                 self.gpuX.set_value(chunkX)
                 self.gpuY.set_value(chunkY)
                 for batch_idx in iter_indices(chunkX, size=self.batch_size):
                     cost = self._train(batch_idx)
-            self.lr.set_value(floatX(self.lr.get_value() * self.lr_decay))
 
     def predict_proba(self, X):
         results = []
@@ -116,3 +125,24 @@ class Net(object):
             for batch_idx in iter_indices(chunk, size=self.batch_size):
                 results.append(self._predict_pre_act(batch_idx))
         return np.vstack(results)
+
+if __name__ == '__main__':
+    trX, teX, trY, teY = mnist(onehot=True)
+
+    trX = floatX(trX)
+    teX = floatX(teX)
+    trY = floatX(trY)
+    teY = floatX(teY)
+    print trX.shape, teX.shape, trY.shape, teY.shape
+
+    layers = [
+        Input(shape=trX[0].shape),
+        Dense(size=512),
+        Dense(size=512),
+        Dense(activation='softmax')
+    ]
+
+    update = updates.Adadelta()
+    model = Net(layers=layers, update='rmsprop', n_epochs=5)
+    model.fit(trX, trY, teX, teY)
+    print metrics.accuracy_score(np.argmax(teY, axis=1), model.predict(teX))
