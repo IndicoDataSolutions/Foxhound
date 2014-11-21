@@ -10,11 +10,10 @@ from foxhound.utils.load import mnist
 from foxhound.neural_network.layers import Dense, Input
 from foxhound.utils import config
 import foxhound.utils.gpu as gpu
-
 from foxhound.utils import updates
-update_mapping = dict((k.lower(), k) for k in dir(updates))
-
 from foxhound.utils import costs
+
+update_mapping = dict((k.lower(), k) for k in dir(updates))
 cost_mapping = dict((k.lower(), k) for k in dir(costs))
 
 def get_params(layer):
@@ -143,7 +142,7 @@ if __name__ == '__main__':
         Dense(activation='softmax')
     ]
 
-    update = updates.Adadelta()
+    update = updates.Adadelta(regularizer=updates.Regularizer(l1=1.0))
     model = Net(layers=layers, update='rmsprop', n_epochs=5)
     model.fit(trX, trY, teX, teY)
     print metrics.accuracy_score(np.argmax(teY, axis=1), model.predict(teX))

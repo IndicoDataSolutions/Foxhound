@@ -9,7 +9,7 @@ import random
 from time import time
 
 from foxhound.utils import floatX, sharedX
-from foxhound.utils.updates import adadelta, sgd
+from foxhound.utils.updates import Adadelta, SGD
 
 def one_hot(X, n):
     Xoh = np.zeros((len(X), n))
