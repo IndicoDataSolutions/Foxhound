@@ -7,9 +7,5 @@ class LassoRegression(LinearModel):
     	regularizer = Regularizer(l1=l1)
     	update = Adadelta()
         LinearModel.__init__(
-        	self, 
-        	cost='mse', 
-        	update=update, 
-        	regularizer=regularizer,
-        	**kwargs
+        	self, update=update, regularizer=regularizer, **kwargs
         )

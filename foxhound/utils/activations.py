@@ -13,3 +13,10 @@ rectify = lambda x: (x + abs(x)) / 2.0
 tanh = T.tanh
 sigmoid = T.nnet.sigmoid
 linear = lambda x: x
+
+cost_mapping = {
+	linear: 'mse',
+	tanh: 'mse',
+	softmax: 'cce',
+	sigmoid: 'bce'
+}

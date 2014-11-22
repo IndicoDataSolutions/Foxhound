@@ -5,5 +5,5 @@ class LinearModel(Net):
 
     def __init__(self, *args, **kwargs):
 
-        layers = kwargs.pop('layers', None) or [Dense(1)]
+        layers = kwargs.pop('layers', None) or [Dense(1, activation='linear')]
         Net.__init__(self, layers=layers, *args, **kwargs)

@@ -10,6 +10,7 @@ from foxhound.utils.load import mnist
 from foxhound.neural_network.layers import Dense, Input
 from foxhound.utils import config
 import foxhound.utils.gpu as gpu
+from foxhound.utils.activations import cost_mapping
 from foxhound.utils import updates, costs, case_insensitive_import
 
 
@@ -23,9 +24,17 @@ def get_params(layer):
 
 class Net(object):
 
-    def __init__(self, layers, n_epochs=100, cost='cce', update='adadelta', regularizer=None):
+    def __init__(self, layers, n_epochs=100, cost=None, update='adadelta', regularizer=None):
         self._layers = layers
         self.n_epochs = n_epochs
+
+        if not cost:
+            try:
+                cost = cost_mapping[layers[-1].activation]
+            except KeyError:
+                raise ValueError(
+                    "Model must be initialized with a valid cost function."
+                )
 
         if isinstance(cost, basestring):
             self.cost_fn = case_insensitive_import(costs, cost)
@@ -42,6 +51,7 @@ class Net(object):
 
         if regularizer:
             self.update_fn.regularizer = regularizer
+
 
     def setup(self, trX, trY):
         self.chunk_size = gpu.n_chunks(self.max_gpu_mem, trX)
@@ -147,6 +157,6 @@ if __name__ == '__main__':
     ]
 
     update = updates.Adadelta(regularizer=updates.Regularizer(l1=1.0))
-    model = Net(layers=layers, update='rmsprop', n_epochs=5)
+    model = Net(layers=layers, cost='cce', update='rmsprop', n_epochs=5)
     model.fit(trX, trY, teX, teY)
     print metrics.accuracy_score(np.argmax(teY, axis=1), model.predict(teX))

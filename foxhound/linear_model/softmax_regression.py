@@ -13,7 +13,7 @@ class SoftmaxRegression(LinearModel):
         LinearModel.__init__(
             self, 
             layers=layers, 
-            cost='cce', 
+            cost='cce',
             update=update, 
             regularizer=regularizer, 
             **kwargs

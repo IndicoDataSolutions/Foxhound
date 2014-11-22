@@ -4,4 +4,4 @@ from foxhound.neural_network.layers import Dense
 
 def test_train_nnet():
 	layers = [Dense(10)]
-	utils.test_train_model(Net, layers)
+	utils.test_train_model(Net, layers, cost='cce')

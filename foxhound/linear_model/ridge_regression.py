@@ -7,9 +7,5 @@ class RidgeRegression(LinearModel):
     	regularizer = Regularizer(l2=l2)
     	update = Adadelta()
         LinearModel.__init__(
-        	self,
-        	cost='mse',
-        	update=update,
-        	regularizer=regularizer,
-        	**kwargs
+        	self, update=update, regularizer=regularizer, **kwargs
         )
