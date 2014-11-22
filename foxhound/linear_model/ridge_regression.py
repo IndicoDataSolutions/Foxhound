@@ -5,7 +5,11 @@ class RidgeRegression(LinearModel):
 
     def __init__(self, l2=1.0, *args, **kwargs):
     	regularizer = Regularizer(l2=l2)
-    	update = Adadelta(regularizer=regularizer)
+    	update = Adadelta()
         LinearModel.__init__(
-        	self, cost='mse', update=update, **kwargs
+        	self,
+        	cost='mse',
+        	update=update,
+        	regularizer=regularizer,
+        	**kwargs
         )

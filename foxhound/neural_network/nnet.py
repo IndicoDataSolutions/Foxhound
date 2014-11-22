@@ -23,7 +23,7 @@ def get_params(layer):
 
 class Net(object):
 
-    def __init__(self, layers, n_epochs=100, cost='cce', update='adadelta'):
+    def __init__(self, layers, n_epochs=100, cost='cce', update='adadelta', regularizer=None):
         self._layers = layers
         self.n_epochs = n_epochs
 
@@ -31,6 +31,7 @@ class Net(object):
             self.cost_fn = case_insensitive_import(costs, cost)
             print self.cost_fn
             self.cost_fn = self.cost_fn()
+            print self.cost_fn
         else:
             self.cost_fn = cost
 
@@ -38,6 +39,9 @@ class Net(object):
             self.update_fn = case_insensitive_import(updates, update)()
         else:
             self.update_fn = update
+
+        if regularizer:
+            self.update_fn.regularizer = regularizer
 
     def setup(self, trX, trY):
         self.chunk_size = gpu.n_chunks(self.max_gpu_mem, trX)

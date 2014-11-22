@@ -6,10 +6,15 @@ class LogisticRegression(LinearModel):
 
     def __init__(self, l1=0.0, l2=1.0, *args, **kwargs):
     	regularizer = Regularizer(l1=l1, l2=l2)
-        update = Adadelta(regularizer=regularizer)
+        update = Adadelta()
         layers = [
             Dense(1, activation='softmax')
         ]
         LinearModel.__init__(
-            self, layers=layers, cost='bce', update=update, **kwargs
+            self,
+            layers=layers,
+            cost='bce',
+            update=update,
+            regularizer=regularizer,
+            **kwargs
         )
