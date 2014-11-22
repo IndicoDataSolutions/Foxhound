@@ -38,9 +38,7 @@ class Net(object):
 
         if isinstance(cost, basestring):
             self.cost_fn = case_insensitive_import(costs, cost)
-            print self.cost_fn
             self.cost_fn = self.cost_fn()
-            print self.cost_fn
         else:
             self.cost_fn = cost
 
@@ -53,10 +51,11 @@ class Net(object):
             self.update_fn.regularizer = regularizer
 
 
-    def setup(self, trX, trY):
+    def setup(self, trX, trY=None):
         self.chunk_size = gpu.n_chunks(self.max_gpu_mem, trX)
         self.gpuX = sharedX(trX[:self.chunk_size])
-        self.gpuY = theano.shared(trY[:self.chunk_size])
+        if trY is not None:
+            self.gpuY = theano.shared(trY[:self.chunk_size])
 
         if isinstance(self._layers[0], Input):
             self.layers = [self._layers[0]]
@@ -65,9 +64,9 @@ class Net(object):
             self.layers = [Input(shape=trX.shape[1:])]
 
         for i, layer in enumerate(self._layers):
-            if i == len(self._layers)-1:
+            if trY is not None and i == len(self._layers) - 1:
                 layer.size = trY.shape[1]
-            layer.connect(self.layers[-1])
+            layer.setup(self.layers[-1], trX, trY)
             self.layers.append(layer)
 
         tr_out = self.layers[-1].output(dropout_active=True)
@@ -84,8 +83,10 @@ class Net(object):
 
         givens = {
             X : self.gpuX[start:end],
-            self.cost_fn.target : self.gpuY[start:end]
         }
+
+        if trY is not None:
+            givens[self.cost_fn.target] = self.gpuY[start:end]
 
         self._train = theano.function(
             [idx], cost, updates=updates, givens=givens, allow_input_downcast=True
@@ -100,26 +101,38 @@ class Net(object):
             [idx], te_pre_act, givens=givens, allow_input_downcast=True, on_unused_input='ignore'
         )
 
-    def fit(self, trX, trY, teX=None, teY=None, max_gpu_mem=config.max_gpu_mem, batch_size=128):
+    def fit(self, trX, trY=None, teX=None, teY=None, max_gpu_mem=config.max_gpu_mem, batch_size=128):
+        trX = floatX(trX)
+
         self.max_gpu_mem = max_gpu_mem
         self.batch_size = batch_size
         self.setup(trX, trY)
-
-        trX = floatX(trX)
-        trY = floatX(trY)
-
-        teX = floatX(teX)
-        teY = floatX(teY)
+        
+        if trY is not None:
+            trY = floatX(trY)
+        if teX is not None:
+            teX = floatX(teX)
+        if teY is not None:
+            teY = floatX(teY)
 
         t = time()
         print self.n_epochs
         for e in range(self.n_epochs):
-            print e
-            for chunkX, chunkY in iter_data(trX, trY, size=self.chunk_size):
-                self.gpuX.set_value(chunkX)
-                self.gpuY.set_value(chunkY)
-                for batch_idx in iter_indices(chunkX, size=self.batch_size):
-                    cost = self._train(batch_idx)
+
+            # unsupervised
+            if trY is None:
+                for chunkX in iter_data(trX, size=self.chunk_size):
+                    self.gpuX.set_value(chunkX)
+                    for batch_idx in iter_indices(chunkX, size=self.batch_size):
+                        cost = self._train(batch_idx)
+
+            # supervised
+            else:
+                for chunkX, chunkY in iter_data(trX, trY, size=self.chunk_size):
+                    self.gpuX.set_value(chunkX)
+                    self.gpuY.set_value(chunkY)
+                    for batch_idx in iter_indices(chunkX, size=self.batch_size):
+                        cost = self._train(batch_idx)
 
     def predict_proba(self, X):
         results = []
@@ -130,9 +143,11 @@ class Net(object):
         return np.vstack(results)
 
     def predict(self, X):
+        X = floatX(X)
         return np.argmax(self.predict_proba(X), axis=1)
 
     def predict_pre_act(self, X):
+        X = floatX(X)
         results = []
         for chunk in iter_data(X, size=self.chunk_size):
             self.gpuX.set_value(chunk)
@@ -147,7 +162,6 @@ if __name__ == '__main__':
     teX = floatX(teX)
     trY = floatX(trY)
     teY = floatX(teY)
-    print trX.shape, teX.shape, trY.shape, teY.shape
 
     layers = [
         Input(shape=trX[0].shape),
@@ -158,5 +172,5 @@ if __name__ == '__main__':
 
     update = updates.Adadelta(regularizer=updates.Regularizer(l1=1.0))
     model = Net(layers=layers, cost='cce', update='rmsprop', n_epochs=5)
-    model.fit(trX, trY, teX, teY)
+    model.fit(trX, trY)
     print metrics.accuracy_score(np.argmax(teY, axis=1), model.predict(teX))

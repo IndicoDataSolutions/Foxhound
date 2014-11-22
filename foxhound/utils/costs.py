@@ -51,6 +51,11 @@ class SquaredHinge(Cost):
 	def get_cost(self, pred):
 		return T.sqr(T.maximum(1. - self.target * pred, 0.)).mean()
 
+class KMeans(Cost):
+
+	def get_cost(self, pred):
+		return T.sqr(T.min(pred, axis=1)).mean()
+
 # aliasing
 cce = CCE = CategoricalCrossEntropy
 bce = BCE = BinaryCrossEntropy
