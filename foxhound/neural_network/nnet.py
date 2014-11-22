@@ -10,11 +10,8 @@ from foxhound.utils.load import mnist
 from foxhound.neural_network.layers import Dense, Input
 from foxhound.utils import config
 import foxhound.utils.gpu as gpu
-from foxhound.utils import updates
-from foxhound.utils import costs
+from foxhound.utils import updates, costs, case_insensitive_import
 
-update_mapping = dict((k.lower(), k) for k in dir(updates))
-cost_mapping = dict((k.lower(), k) for k in dir(costs))
 
 def get_params(layer):
     params = []
@@ -29,9 +26,16 @@ class Net(object):
     def __init__(self, layers, n_epochs=100, cost='cce', update='adadelta'):
         self._layers = layers
         self.n_epochs = n_epochs
-        self.cost_fn = getattr(costs, cost_mapping[cost])
+
+        if isinstance(cost, basestring):
+            self.cost_fn = case_insensitive_import(costs, cost)
+            print self.cost_fn
+            self.cost_fn = self.cost_fn()
+        else:
+            self.cost_fn = cost
+
         if isinstance(update, basestring):
-            self.update_fn = getattr(updates, update_mapping[update])()
+            self.update_fn = case_insensitive_import(updates, update)()
         else:
             self.update_fn = update
 
@@ -56,8 +60,7 @@ class Net(object):
         te_out = self.layers[-1].output(dropout_active=False)
         te_pre_act = self.layers[-1].output(dropout_active=False, pre_act=True)
         X = self.layers[0].X
-        Y = T.fmatrix()
-        cost = self.cost_fn(Y, tr_out)
+        cost = self.cost_fn.get_cost(tr_out)
         self.params = get_params(self.layers[-1])
         updates = self.update_fn.get_updates(self.params, cost)
 
@@ -67,7 +70,7 @@ class Net(object):
 
         givens = {
             X : self.gpuX[start:end],
-            Y : self.gpuY[start:end]
+            self.cost_fn.target : self.gpuY[start:end]
         }
 
         self._train = theano.function(
@@ -82,9 +85,6 @@ class Net(object):
         self._predict_pre_act = theano.function(
             [idx], te_pre_act, givens=givens, allow_input_downcast=True, on_unused_input='ignore'
         )
-
-        metric = T.eq(T.argmax(te_out, axis=1), T.argmax(Y, axis=1)).mean()
-        self._metric = theano.function([X, Y], metric)
 
     def fit(self, trX, trY, teX=None, teY=None, max_gpu_mem=config.max_gpu_mem, batch_size=128):
         self.max_gpu_mem = max_gpu_mem

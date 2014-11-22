@@ -34,7 +34,7 @@ import re
 from foxhound.utils import floatX
 
 # change to where datasets are kept for you
-datasets_dir = '/media/datasets/'
+datasets_dir = '/home/mmay/data/'
 
 def sort(l):
 	convert = lambda text: int(text) if text.isdigit() else text

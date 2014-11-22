@@ -34,3 +34,7 @@ def sharedX(X, dtype=theano.config.floatX):
 
 def downcast_float(X):
     return np.asarray(X, dtype=np.float32)
+
+def case_insensitive_import(module, name):
+    mapping = dict((k.lower(), k) for k in dir(module))
+    return getattr(module, mapping[name])
