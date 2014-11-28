@@ -10,6 +10,7 @@ from foxhound.utils import floatX, sharedX, shuffle
 from foxhound.utils.load import mnist
 from foxhound.utils import activations
 from foxhound.utils.distances import euclidean
+from foxhound.utils.weights import Normal, Constant
 
 
 srng = RandomStreams()
@@ -47,19 +48,20 @@ class Input(Layer):
 
 class Dense(Layer):
 
-    def __init__(self, size=512, activation='rectify', p_drop=0., w_std=0.01, b_init=0.):
+    def __init__(self, size=512, activation='rectify', weight_init=Normal(std_dev=0.01), 
+                 bias_init=Constant(0), p_drop=0):
         self.activation_str = activation
         self.activation = getattr(activations, activation)
         self.p_drop = p_drop
         self.size = size
-        self.b_init = b_init
-        self.w_std = w_std
+        self.weight_init_fn = weight_init
+        self.bias_init_fn = bias_init
 
     def weight_init(self):
-        return sharedX(np.random.randn(self.n_in, self.size) * self.w_std)
+        return self.weight_init_fn((self.n_in, self.size))
 
     def bias_init(self):
-        return sharedX(np.ones(self.size) * self.b_init)
+        return self.bias_init_fn((self.size,))
 
     def get_params(self):
         return [self.w, self.b]
