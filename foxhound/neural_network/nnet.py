@@ -22,6 +22,7 @@ class Net(object):
     def __init__(self, layers, n_epochs=100, cost=None, update='adadelta', regularizer=None, 
                  max_gpu_mem=config.max_gpu_mem, batch_size=128):
         self._layers = layers
+        self._values = False
         self.n_epochs = n_epochs
         self.max_gpu_mem = max_gpu_mem
         self.batch_size = batch_size
@@ -70,12 +71,14 @@ class Net(object):
             layer.setup(self.layers[-1], dataX, dataY)
             self.layers.append(layer)
 
+
         tr_out = self.layers[-1].output(dropout_active=True)
         te_out = self.layers[-1].output(dropout_active=False)
         te_pre_act = self.layers[-1].preactivation(dropout_active=False)
         X = self.layers[0].X
         cost = self.cost_fn.get_cost(tr_out)
         self.params = self.get_params()
+        self.update_params()
         updates = self.update_fn.get_updates(self.params, cost)
 
         idx = T.lscalar('idx')
@@ -89,12 +92,16 @@ class Net(object):
         if dataY is not None:
             givens[self.cost_fn.target] = self.gpuY[start:end]
 
-        self._train = theano.function(
-            [idx], cost, updates=updates, givens=givens, allow_input_downcast=True
-        )
-        self._cost = theano.function(
-            [idx], cost, givens=givens, allow_input_downcast=True
-        )
+        try:
+            self._train = theano.function(
+                [idx], cost, updates=updates, givens=givens, allow_input_downcast=True
+            )
+            self._cost = theano.function(
+                [idx], cost, givens=givens, allow_input_downcast=True
+            )
+        except theano.gof.fg.MissingInputError:
+            pass
+            
         self._predict = theano.function(
             [idx], te_out, givens=givens, allow_input_downcast=True, on_unused_input='ignore'
         )
@@ -103,16 +110,7 @@ class Net(object):
         )
 
     def fit(self, trX, trY=None, teX=None, teY=None):
-        trX = floatX(trX)
-        trY = floatX(trY)
-
         self.setup(trX, trY)
-
-        trY = floatX(trY)
-        teX = floatX(teX)
-        teY = floatX(teY)
-
-        t = time()
 
         data = [trX]
         if trY is not None:
@@ -130,16 +128,16 @@ class Net(object):
         )
 
     def predict(self, X):
-        X = floatX(X)
         return np.argmax(self.predict_proba(X), axis=1)
 
     def predict_pre_act(self, X):
-        X = floatX(X)
         return np.vstack(
             [self._predict_pre_act(idx) for idx in self.batches(X)]
         )
 
     def batches(self, *args):
+        args = tuple([floatX(arg) for arg in args])
+        self.setup(*args)
         for chunk in iter_data(*args, size=self.chunk_size):
             if len(chunk) is 1:
                 X = chunk[0]
@@ -170,9 +168,13 @@ class Net(object):
         joblib.dump(values, filename, compress=3)
 
     def load(self, filename):
-        values = joblib.load(filename)
-        for p, v in izip(self.params, values):
-            p.set_value(v)
+        self._values = joblib.load(filename)
+
+    def update_params(self):
+        if self._values:
+            for p, v in izip(self.params, self._values):
+                p.set_value(v)
+            del self._values
 
 if __name__ == '__main__':
     trX, teX, trY, teY = mnist(onehot=True)
