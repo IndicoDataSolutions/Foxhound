@@ -1,4 +1,5 @@
 from time import time
+from itertools import izip
 
 import theano
 import theano.tensor as T
@@ -95,8 +96,6 @@ class Net(object):
             [idx], te_pre_act, givens=givens, allow_input_downcast=True, on_unused_input='ignore'
         )
 
-        print self
-
     def fit(self, trX, trY=None, teX=None, teY=None, max_gpu_mem=config.max_gpu_mem, batch_size=128):
         trX = floatX(trX)
         trY = floatX(trY)
@@ -163,10 +162,13 @@ class Net(object):
         return template % (self.__class__.__name__, layer_str)
 
     def save(self, filename):
-        joblib.dump(self.params, filename, compress=3)
+        values = [p.get_value() for p in self.params]
+        joblib.dump(values, filename, compress=3)
 
     def load(self, filename):
-        self.params = joblib.load(filename)
+        values = joblib.load(filename)
+        for p, v in izip(self.params, values):
+            p.set_value(v)
 
 if __name__ == '__main__':
     trX, teX, trY, teY = mnist(onehot=True)
@@ -181,6 +183,6 @@ if __name__ == '__main__':
     update = updates.Adadelta(regularizer=updates.Regularizer(l1=1.0))
     model = Net(layers=layers, cost='cce', update='rmsprop', n_epochs=1)
     model.fit(trX, trY)
+    model.save("save.pkl")
 
-    print model.predict(teX)
     # print metrics.accuracy_score(np.argmax(teY, axis=1), model.predict(teX))
