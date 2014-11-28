@@ -23,18 +23,8 @@ from foxhound.utils.vis import grayscale_grid_vis
 class KMeans(Net):
 
     def __init__(self, k=10, *args, **kwargs):
-        layers = [Euclidean(size=k), Euclidean]
+        layers = [Euclidean(size=k)]
         Net.__init__(self, layers=layers, cost='kmeans', *args, **kwargs)
 
     def fit(self, trX, **kwargs):
         super(KMeans, self).fit(trX, **kwargs)
-
-if __name__ == '__main__':
-    from foxhound.utils.load import mnist
-
-    trX, teX, trY, teY = mnist()
-
-    kmeans = KMeans(k=10)
-    kmeans.fit(trX)
-    print np.bincount(kmeans.predict(teX))
-    grayscale_grid_vis(kmeans._layers[-1].w.get_value(), transform=lambda x: x.reshape(28, 28))

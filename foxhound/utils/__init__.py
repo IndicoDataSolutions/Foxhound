@@ -9,7 +9,7 @@ def iter_data(*data, **kwargs):
         start = b * size
         end = (b + 1) * size
         if len(data) == 1:
-            yield data[0][start:end]
+            yield tuple([data[0][start:end],])
         else:
             yield tuple([d[start:end] for d in data]) 
 
@@ -27,12 +27,15 @@ def shuffle(*data):
         return [d[idxs] for d in data]
 
 def floatX(X):
+    if X is None: return None
     return np.asarray(X, dtype=theano.config.floatX)
 
 def sharedX(X, dtype=theano.config.floatX):
+    if X is None: return None
     return theano.shared(np.asarray(X, dtype=dtype))
 
 def downcast_float(X):
+    if X is None: return None
     return np.asarray(X, dtype=np.float32)
 
 def case_insensitive_import(module, name):
