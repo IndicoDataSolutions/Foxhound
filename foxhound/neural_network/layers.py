@@ -28,19 +28,27 @@ def dropout(X, p=0.):
     return X
 
 
-class Input(object):
+class Layer(object):
+
+    def __repr__(self):
+        size = self.size or None
+        return "%s(size=%s)" % (self.__class__.__name__, str(self.size))
+
+class Input(Layer):
 
     def __init__(self, shape):
         self.X = tensor_map[len(shape)+1]
         self.output_shape = shape
+        self.size = shape[0]
 
     def output(self, dropout_active=True):
         return self.X
 
 
-class Dense(object):
+class Dense(Layer):
 
     def __init__(self, size=512, activation='rectify', p_drop=0., w_std=0.01, b_init=0.):
+        self.activation_str = activation
         self.activation = getattr(activations, activation)
         self.p_drop = p_drop
         self.size = size
@@ -67,10 +75,6 @@ class Dense(object):
         self.params = self.get_params()
         self.output_shape = (self.size,)
 
-        print 
-        print 'Layer input shape:', l_in.output_shape
-        print 'Layer output shape:', self.output_shape
-
     def preactivation(self, dropout_active=True):
         X = self.l_in.output(dropout_active=dropout_active)
         if X.ndim > 2:
@@ -86,6 +90,12 @@ class Dense(object):
 
     def transform(self, X):
         return T.dot(X, self.w) + self.b
+
+    def __repr__(self):
+        size = self.size or None
+        return "%s(size=%s, activation='%s')" % (
+            self.__class__.__name__, str(self.size), self.activation_str
+        )
 
 
 class Euclidean(Dense):

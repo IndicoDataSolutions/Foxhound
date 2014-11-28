@@ -101,6 +101,8 @@ class Net(object):
             [idx], te_pre_act, givens=givens, allow_input_downcast=True, on_unused_input='ignore'
         )
 
+        print self
+
     def fit(self, trX, trY=None, teX=None, teY=None, max_gpu_mem=config.max_gpu_mem, batch_size=128):
         trX = floatX(trX)
         trY = floatX(trY)
@@ -108,40 +110,27 @@ class Net(object):
         self.max_gpu_mem = max_gpu_mem
         self.batch_size = batch_size
         self.setup(trX, trY)
-        
-        if trY is not None:
-            trY = floatX(trY)
-        if teX is not None:
-            teX = floatX(teX)
-        if teY is not None:
-            teY = floatX(teY)
+
+        trY = floatX(trY)
+        teX = floatX(teX)
+        teY = floatX(teY)
 
         t = time()
-        print self.n_epochs
+
+        data = [trX]
+        if trY is not None:
+            data.append(trY)
+            
+        print "Total Epochs:", self.n_epochs
         for e in range(self.n_epochs):
-
-            # unsupervised
-            if trY is None:
-                for chunkX in iter_data(trX, size=self.chunk_size):
-                    self.gpuX.set_value(chunkX)
-                    for batch_idx in iter_indices(chunkX, size=self.batch_size):
-                        cost = self._train(batch_idx)
-
-            # supervised
-            else:
-                for chunkX, chunkY in iter_data(trX, trY, size=self.chunk_size):
-                    self.gpuX.set_value(chunkX)
-                    self.gpuY.set_value(chunkY)
-                    for batch_idx in iter_indices(chunkX, size=self.batch_size):
-                        cost = self._train(batch_idx)
+            print "Epoch:", e
+            for batch_idx in self.batches(*data):
+                cost = self._train(batch_idx)
 
     def predict_proba(self, X):
-        results = []
-        for chunk in iter_data(X, size=self.chunk_size):
-            self.gpuX.set_value(chunk)
-            for batch_idx in iter_indices(chunk, size=self.batch_size):
-                results.append(self._predict(batch_idx))
-        return np.vstack(results)
+        return np.vstack(
+            [self._predict(idx) for idx in self.batches(X)]
+        )
 
     def predict(self, X):
         X = floatX(X)
@@ -149,12 +138,26 @@ class Net(object):
 
     def predict_pre_act(self, X):
         X = floatX(X)
-        results = []
-        for chunk in iter_data(X, size=self.chunk_size):
-            self.gpuX.set_value(chunk)
-            for batch_idx in iter_indices(chunk, size=self.batch_size):
-                results.append(self._predict_pre_act(batch_idx))
-        return np.vstack(results)
+        return np.vstack(
+            [self._predict_pre_act(idx) for idx in self.batches(X)]
+        )
+
+    def batches(self, *args):
+        for chunk in iter_data(*args, size=self.chunk_size):
+            if len(chunk) is 1:
+                X = chunk[0]
+                self.gpuX.set_value(X)
+            elif len(chunk) is 2:
+                X, Y = chunk
+                self.gpuX.set_value(X)
+                self.gpuY.set_value(Y)
+            for batch_idx in iter_indices(X, size=self.batch_size):
+                yield batch_idx
+
+    def __repr__(self):
+        template = "%s(\n  %s\n)"
+        layer_str = ",\n  ".join([str(layer) for layer in self.layers])
+        return template % (self.__class__.__name__, layer_str)
 
 if __name__ == '__main__':
     trX, teX, trY, teY = mnist(onehot=True)
@@ -169,4 +172,7 @@ if __name__ == '__main__':
     update = updates.Adadelta(regularizer=updates.Regularizer(l1=1.0))
     model = Net(layers=layers, cost='cce', update='rmsprop', n_epochs=5)
     model.fit(trX, trY)
-    print metrics.accuracy_score(np.argmax(teY, axis=1), model.predict(teX))
+
+    from sklearn.externals import joblib
+    joblib.dump(model, "save.pkl")
+    # print metrics.accuracy_score(np.argmax(teY, axis=1), model.predict(teX))
