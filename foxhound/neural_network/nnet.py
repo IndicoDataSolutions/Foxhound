@@ -1,9 +1,11 @@
+from time import time
+
 import theano
 import theano.tensor as T
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 import numpy as np
 from sklearn import metrics
-from time import time
+from sklearn.externals import joblib
 
 from foxhound.utils import floatX, sharedX, shuffle, iter_data, iter_indices
 from foxhound.utils.load import mnist
@@ -13,14 +15,6 @@ import foxhound.utils.gpu as gpu
 from foxhound.utils.activations import cost_mapping
 from foxhound.utils import updates, costs, case_insensitive_import
 
-
-def get_params(layer):
-    params = []
-    while not hasattr(layer, 'X'):
-        if hasattr(layer, 'params'):
-            params.extend(layer.params)
-        layer = layer.l_in
-    return params
 
 class Net(object):
 
@@ -74,7 +68,7 @@ class Net(object):
         te_pre_act = self.layers[-1].preactivation(dropout_active=False)
         X = self.layers[0].X
         cost = self.cost_fn.get_cost(tr_out)
-        self.params = get_params(self.layers[-1])
+        self.params = self.get_params()
         updates = self.update_fn.get_updates(self.params, cost)
 
         idx = T.lscalar('idx')
@@ -154,10 +148,25 @@ class Net(object):
             for batch_idx in iter_indices(X, size=self.batch_size):
                 yield batch_idx
 
+    def get_params(self):
+        params = []
+        layer = self.layers[-1]
+        while not hasattr(layer, 'X'):
+            if hasattr(layer, 'params'):
+                params.extend(layer.params)
+            layer = layer.l_in
+        return params
+
     def __repr__(self):
         template = "%s(\n  %s\n)"
         layer_str = ",\n  ".join([str(layer) for layer in self.layers])
         return template % (self.__class__.__name__, layer_str)
+
+    def save(self, filename):
+        joblib.dump(self.params, filename, compress=3)
+
+    def load(self, filename):
+        self.params = joblib.load(filename)
 
 if __name__ == '__main__':
     trX, teX, trY, teY = mnist(onehot=True)
@@ -170,9 +179,8 @@ if __name__ == '__main__':
     ]
 
     update = updates.Adadelta(regularizer=updates.Regularizer(l1=1.0))
-    model = Net(layers=layers, cost='cce', update='rmsprop', n_epochs=5)
+    model = Net(layers=layers, cost='cce', update='rmsprop', n_epochs=1)
     model.fit(trX, trY)
 
-    from sklearn.externals import joblib
-    joblib.dump(model, "save.pkl")
+    print model.predict(teX)
     # print metrics.accuracy_score(np.argmax(teY, axis=1), model.predict(teX))
