@@ -103,6 +103,7 @@ class Net(object):
 
     def fit(self, trX, trY=None, teX=None, teY=None, max_gpu_mem=config.max_gpu_mem, batch_size=128):
         trX = floatX(trX)
+        trY = floatX(trY)
 
         self.max_gpu_mem = max_gpu_mem
         self.batch_size = batch_size
@@ -157,11 +158,6 @@ class Net(object):
 
 if __name__ == '__main__':
     trX, teX, trY, teY = mnist(onehot=True)
-
-    trX = floatX(trX)
-    teX = floatX(teX)
-    trY = floatX(trY)
-    teY = floatX(teY)
 
     layers = [
         Input(shape=trX[0].shape),

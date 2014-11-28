@@ -69,7 +69,7 @@ class Dense(object):
 
         print 
         print 'Layer input shape:', l_in.output_shape
-        print 'Layer output shape', self.output_shape
+        print 'Layer output shape:', self.output_shape
 
     def preactivation(self, dropout_active=True):
         X = self.l_in.output(dropout_active=dropout_active)
@@ -78,7 +78,7 @@ class Dense(object):
         if dropout_active and (self.p_drop > 0.):
             X = dropout(X, p = self.p_drop)
         return self.transform(X)
-        
+
     def output(self, dropout_active=True):
         return self.activation(
             self.preactivation(dropout_active=dropout_active)
