@@ -49,25 +49,25 @@ class Net(object):
             self.update_fn.regularizer = regularizer
 
 
-    def setup(self, trX, trY=None):
-        trX = floatX(trX)
-        trY = floatX(trY)
-        
-        self.chunk_size = gpu.n_chunks(self.max_gpu_mem, trX)
-        self.gpuX = sharedX(trX[:self.chunk_size])
-        if trY is not None:
-            self.gpuY = theano.shared(trY[:self.chunk_size])
+    def setup(self, X, Y=None):
+        dataX = floatX(X)
+        dataY = floatX(Y)
+
+        self.chunk_size = gpu.n_chunks(self.max_gpu_mem, dataX)
+        self.gpuX = sharedX(dataX[:self.chunk_size])
+        if dataY is not None:
+            self.gpuY = theano.shared(dataY[:self.chunk_size])
 
         if isinstance(self._layers[0], Input):
             self.layers = [self._layers[0]]
             self._layers = self._layers[1:]
         else:
-            self.layers = [Input(shape=trX.shape[1:])]
+            self.layers = [Input(shape=dataX.shape[1:])]
 
         for i, layer in enumerate(self._layers):
-            if trY is not None and i == len(self._layers) - 1:
-                layer.size = trY.shape[1]
-            layer.setup(self.layers[-1], trX, trY)
+            if dataY is not None and i == len(self._layers) - 1:
+                layer.size = dataY.shape[1]
+            layer.setup(self.layers[-1], dataX, dataY)
             self.layers.append(layer)
 
         tr_out = self.layers[-1].output(dropout_active=True)
@@ -86,7 +86,7 @@ class Net(object):
             X : self.gpuX[start:end],
         }
 
-        if trY is not None:
+        if dataY is not None:
             givens[self.cost_fn.target] = self.gpuY[start:end]
 
         self._train = theano.function(
