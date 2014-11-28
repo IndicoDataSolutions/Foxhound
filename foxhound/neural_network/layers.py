@@ -71,16 +71,18 @@ class Dense(object):
         print 'Layer input shape:', l_in.output_shape
         print 'Layer output shape', self.output_shape
 
-    def output(self, dropout_active=True, pre_act=False):
+    def preactivation(self, dropout_active=True):
         X = self.l_in.output(dropout_active=dropout_active)
         if X.ndim > 2:
             X = T.flatten(X, outdim=2)
         if dropout_active and (self.p_drop > 0.):
             X = dropout(X, p = self.p_drop)
-        z = self.transform(X)
-        if pre_act:
-            return z
-        return self.activation(z)
+        return self.transform(X)
+        
+    def output(self, dropout_active=True):
+        return self.activation(
+            self.preactivation(dropout_active=dropout_active)
+        )
 
     def transform(self, X):
         return T.dot(X, self.w) + self.b

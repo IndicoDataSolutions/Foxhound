@@ -71,7 +71,7 @@ class Net(object):
 
         tr_out = self.layers[-1].output(dropout_active=True)
         te_out = self.layers[-1].output(dropout_active=False)
-        te_pre_act = self.layers[-1].output(dropout_active=False, pre_act=True)
+        te_pre_act = self.layers[-1].preactivation(dropout_active=False)
         X = self.layers[0].X
         cost = self.cost_fn.get_cost(tr_out)
         self.params = get_params(self.layers[-1])
