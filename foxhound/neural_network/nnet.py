@@ -19,9 +19,12 @@ from foxhound.utils import updates, costs, case_insensitive_import
 
 class Net(object):
 
-    def __init__(self, layers, n_epochs=100, cost=None, update='adadelta', regularizer=None):
+    def __init__(self, layers, n_epochs=100, cost=None, update='adadelta', regularizer=None, 
+                 max_gpu_mem=config.max_gpu_mem, batch_size=128):
         self._layers = layers
         self.n_epochs = n_epochs
+        self.max_gpu_mem = max_gpu_mem
+        self.batch_size = batch_size
 
         if not cost:
             try:
@@ -47,6 +50,9 @@ class Net(object):
 
 
     def setup(self, trX, trY=None):
+        trX = floatX(trX)
+        trY = floatX(trY)
+        
         self.chunk_size = gpu.n_chunks(self.max_gpu_mem, trX)
         self.gpuX = sharedX(trX[:self.chunk_size])
         if trY is not None:
@@ -96,12 +102,10 @@ class Net(object):
             [idx], te_pre_act, givens=givens, allow_input_downcast=True, on_unused_input='ignore'
         )
 
-    def fit(self, trX, trY=None, teX=None, teY=None, max_gpu_mem=config.max_gpu_mem, batch_size=128):
+    def fit(self, trX, trY=None, teX=None, teY=None):
         trX = floatX(trX)
         trY = floatX(trY)
 
-        self.max_gpu_mem = max_gpu_mem
-        self.batch_size = batch_size
         self.setup(trX, trY)
 
         trY = floatX(trY)
