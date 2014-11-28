@@ -101,7 +101,7 @@ class Net(object):
             )
         except theano.gof.fg.MissingInputError:
             pass
-            
+
         self._predict = theano.function(
             [idx], te_out, givens=givens, allow_input_downcast=True, on_unused_input='ignore'
         )
@@ -174,7 +174,7 @@ class Net(object):
         if self._values:
             for p, v in izip(self.params, self._values):
                 p.set_value(v)
-            del self._values
+            self._values = False
 
 if __name__ == '__main__':
     trX, teX, trY, teY = mnist(onehot=True)
