@@ -15,7 +15,7 @@ from foxhound.utils import config
 import foxhound.utils.gpu as gpu
 from foxhound.utils.activations import cost_mapping
 from foxhound.utils import updates, costs, case_insensitive_import
-
+from foxhound.utils.aug import image_aug
 
 class Net(object):
 
