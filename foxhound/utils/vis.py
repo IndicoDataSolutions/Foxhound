@@ -1,5 +1,5 @@
 import numpy as np
-from matplotlib import pyplot as plt
+# from matplotlib import pyplot as plt
 from scipy.misc import imsave
 
 def color_weight_vis(w):
