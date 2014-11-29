@@ -10,7 +10,7 @@ import random
 
 from skimage.transform import SimilarityTransform, warp, rotate
 
-from matplotlib import pyplot as plt
+# from matplotlib import pyplot as plt
 from scipy.misc import imread, imsave
 
 from foxhound.utils import floatX
