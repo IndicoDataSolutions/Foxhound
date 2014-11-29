@@ -144,6 +144,11 @@ class Net(object):
                 self.gpuX.set_value(X)
             elif len(chunk) is 2:
                 X, Y = chunk
+                """
+                Hardcoded Augmentation
+                """
+                X_aug = [np.ravel(image_aug(x.reshape((100,100)), flip_ud=True, rotate_degrees=10)) for x in X]
+                X = floatX(X_aug)
                 self.gpuX.set_value(X)
                 self.gpuY.set_value(Y)
             for batch_idx in iter_indices(X, size=self.batch_size):
