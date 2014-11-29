@@ -2,11 +2,11 @@ import numpy as np
 import theano
 import random
 
-from cv2 import imread as cv2_imread
-from cv2 import resize as cv2_resize
-from cv2 import INTER_AREA, INTER_LINEAR, INTER_NEAREST
-from cv2 import cvtColor
-from cv2 import COLOR_BGR2RGB
+# from cv2 import imread as cv2_imread
+# from cv2 import resize as cv2_resize
+# from cv2 import INTER_AREA, INTER_LINEAR, INTER_NEAREST
+# from cv2 import cvtColor
+# from cv2 import COLOR_BGR2RGB
 
 from skimage.transform import SimilarityTransform, warp, rotate
 
@@ -16,7 +16,7 @@ from scipy.misc import imread, imsave
 from foxhound.utils import floatX
 from foxhound.utils.vis import color_grid_vis
 
-def prob_rounding(n):
+def gprob_rounding(n):
     if n.is_integer():
         return n
     else:
@@ -31,12 +31,12 @@ def center_crop_shape(img, nw, nh):
     oh = prob_rounding(oh)
     return img[ow:ow+nw, oh:oh+nh]
 
-def cv2_load(path):
-    img = cv2_imread(path)
-    if len(img.shape) == 2:
-        img = np.dstack((img, img, img))
-    img = cvtColor(img, COLOR_BGR2RGB)
-    return img
+# def cv2_load(path):
+#     img = cv2_imread(path)
+#     if len(img.shape) == 2:
+#         img = np.dstack((img, img, img))
+#     img = cvtColor(img, COLOR_BGR2RGB)
+#     return img
 
 def flip(img, lr=True, ud=False):
     """
@@ -53,16 +53,16 @@ def flip(img, lr=True, ud=False):
         img = choices[random.randint(0, len(choices)-1)](img)
     return img
 
-def min_resize(img, size, interpolation=INTER_LINEAR):
-    """
-    Resize an image so that it is size along the minimum spatial dimension.
-    """
-    w, h = map(float, img.shape[:2])
-    if w <= h:
-        img = cv2_resize(img, (int(round((h/w)*size)), int(size)), interpolation=interpolation)
-    else:
-        img = cv2_resize(img, (int(size), int(round((w/h)*size))), interpolation=interpolation)
-    return img
+# def min_resize(img, size, interpolation=INTER_LINEAR):
+#     """
+#     Resize an image so that it is size along the minimum spatial dimension.
+#     """
+#     w, h = map(float, img.shape[:2])
+#     if w <= h:
+#         img = cv2_resize(img, (int(round((h/w)*size)), int(size)), interpolation=interpolation)
+#     else:
+#         img = cv2_resize(img, (int(size), int(round((w/h)*size))), interpolation=interpolation)
+#     return img
 
 def patch(img, size):
     """
@@ -73,24 +73,24 @@ def patch(img, size):
     y = random.randint(0, h - size)
     return img[x:x+size, y:y+size]
 
-def load_path(path, img_size=73, patch_size=64):
-    img = cv2_load(path)
-    img = min_resize(img, img_size)
-    return img
+# def load_path(path, img_size=73, patch_size=64):
+#     img = cv2_load(path)
+#     img = min_resize(img, img_size)
+#     return img
 
-def load_path_aug(path, img_size=73, patch_size=64):
-    img = cv2_load(path)
-    img = min_resize(img, img_size)
-    img = patch(img, patch_size)
-    img = flip(img)
-    return img
+# def load_path_aug(path, img_size=73, patch_size=64):
+#     img = cv2_load(path)
+#     img = min_resize(img, img_size)
+#     img = patch(img, patch_size)
+#     img = flip(img)
+#     return img
 
-def load_path_center_cropped(path, img_size=73, patch_size=64):
-    img = cv2_load(path)
-    img = min_resize(img,img_size)
-    img = center_crop_shape(img,patch_size,patch_size)
-    img = img.transpose(2, 0, 1) / 127.5 - 1.
-    return img
+# def load_path_center_cropped(path, img_size=73, patch_size=64):
+#     img = cv2_load(path)
+#     img = min_resize(img,img_size)
+#     img = center_crop_shape(img,patch_size,patch_size)
+#     img = img.transpose(2, 0, 1) / 127.5 - 1.
+#     return img
 
 
 def load_paths(paths):
