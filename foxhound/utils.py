@@ -1,4 +1,5 @@
 import inspect
+import types
 import numpy as np
 
 def iter_data(*data, **kwargs):
@@ -40,7 +41,11 @@ def classes_of(module):
 
 def instantiate(module, obj):
     if isinstance(obj, basestring):
-        return case_insensitive_import(module, obj)()
+        obj = case_insensitive_import(module, obj)
+        if isinstance(obj, types.FunctionType):
+            return obj
+        else:
+            return obj()
     elif isinstance(obj, classes_of(module)):
     	return obj
     else:

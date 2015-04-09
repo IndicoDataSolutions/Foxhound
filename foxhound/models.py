@@ -44,6 +44,7 @@ class Network(object):
                 else:
                     self.cost = instantiate(costs, 'mse')
 
+        self.verbose = verbose
         self.seed = seed
         self.model = init(model)
         self.iterator = instantiate(iterators, iterator)
@@ -65,19 +66,20 @@ class Network(object):
         n = 0.
         t = time()
         costs = []
-        for e in range(n_epochs):
+        for e in range(n_iter):
             epoch_costs = []
             for xmb, ymb in self.iterator.iterXY(trX, trY):
                 c = self._train(xmb, ymb)
                 epoch_costs.append(c)
-                n += xmb.shape[1]
+                n += len(ymb)
                 if self.verbose >= 2:
                     n_per_sec = n / (time() - t)
-                    n_left = len(trY) - n % len(trY)
+                    n_left = len(trY)*n_iter - n
                     time_left = n_left/n_per_sec
-                    sys.stdout.write("\rEpoch %d Seen %d samples Avg cost %0.4f Time left %d seconds" % (e, n, np.mean(epoch_costs[-250:]), time_left))
+                    sys.stdout.write("\rIter %d Seen %d samples Avg cost %0.4f Time left %d seconds" % (e, n, np.mean(epoch_costs[-250:]), time_left))
                     sys.stdout.flush()
             costs.extend(epoch_costs)
+        print
         return costs
 
     def predict(self, X):
