@@ -31,38 +31,38 @@ def collect_updates(model, cost):
 
 class Network(object):
 
-	def __init__(self, model, cost=None, verbose=2, iterator='linear', seed=42):
+    def __init__(self, model, cost=None, verbose=2, iterator='linear', seed=42):
 
-		if cost is not None:
-			self.cost = instantiate(costs, cost)
-		else:
-			if isinstance(model[-1], ops.Activation):
-				if isinstance(model[-1].activation, activations.Sigmoid):
-					self.cost = instantiate(costs, 'bce')
-				elif isinstance(model[-1].activation, activations.Softmax):
-					self.cost = instantiate(costs, 'cce')
-				else:
-					self.cost = instantiate(costs, 'mse')
+        if cost is not None:
+            self.cost = instantiate(costs, cost)
+        else:
+            if isinstance(model[-1], ops.Activation):
+                if isinstance(model[-1].activation, activations.Sigmoid):
+                    self.cost = instantiate(costs, 'bce')
+                elif isinstance(model[-1].activation, activations.Softmax):
+                    self.cost = instantiate(costs, 'cce')
+                else:
+                    self.cost = instantiate(costs, 'mse')
 
-		self.seed = seed
-		self.model = init(model)
-		self.iterator = instantiate(iterators, iterator)
+        self.seed = seed
+        self.model = init(model)
+        self.iterator = instantiate(iterators, iterator)
 
-		t_rng = RandomStreams(self.seed)
-		y_tr = self.model[-1].op({'t_rng':t_rng, 'dropout':True})
-		y_te = self.model[-1].op({'t_rng':t_rng, 'dropout':False})
-		
-		X = self.model[0].X
-		Y = T.TensorType(theano.config.floatX, (False,)*(len(model[-1].out_shape)))()
-		cost = self.cost(Y, y_tr)
+        t_rng = RandomStreams(self.seed)
+        y_tr = self.model[-1].op({'t_rng':t_rng, 'dropout':True})
+        y_te = self.model[-1].op({'t_rng':t_rng, 'dropout':False})
+        
+        X = self.model[0].X
+        Y = T.TensorType(theano.config.floatX, (False,)*(len(model[-1].out_shape)))()
+        cost = self.cost(Y, y_tr)
 
         self.updates = collect_updates(self.model, cost)
-		self._train = theano.function([X, Y], cost, updates=self.updates)
-		self._predict = theano.function([X], y_te)
+        self._train = theano.function([X, Y], cost, updates=self.updates)
+        self._predict = theano.function([X], y_te)
 
-	def fit(self, trX, trY, n_iter=1):
+    def fit(self, trX, trY, n_iter=1):
 
-		n = 0.
+        n = 0.
         t = time()
         costs = []
         for e in range(n_epochs):
