@@ -11,6 +11,7 @@ import costs
 import activations
 import iterators
 from utils import instantiate
+from preprocessing import standardize_X, standardize_Y
 
 def init(model):
     print model[0].out_shape
@@ -53,16 +54,18 @@ class Network(object):
         y_tr = self.model[-1].op({'t_rng':t_rng, 'dropout':True})
         y_te = self.model[-1].op({'t_rng':t_rng, 'dropout':False})
         
-        X = self.model[0].X
-        Y = T.TensorType(theano.config.floatX, (False,)*(len(model[-1].out_shape)))()
-        cost = self.cost(Y, y_tr)
+        self.X = self.model[0].X
+        self.Y = T.TensorType(theano.config.floatX, (False,)*(len(model[-1].out_shape)))()
+        cost = self.cost(self.Y, y_tr)
 
         self.updates = collect_updates(self.model, cost)
-        self._train = theano.function([X, Y], cost, updates=self.updates)
-        self._predict = theano.function([X], y_te)
+        self._train = theano.function([self.X, self.Y], cost, updates=self.updates)
+        self._predict = theano.function([self.X], y_te)
 
     def fit(self, trX, trY, n_iter=1):
-
+        trX = standardize_X(self.model[0].out_shape, trX)
+        out_shape = self.model[-1].out_shape
+        trY = standardize_Y(out_shape, trY)
         n = 0.
         t = time()
         costs = []
@@ -82,9 +85,16 @@ class Network(object):
         print
         return costs
 
-    def predict(self, X):
+    def predict(self, X, argmax=True):
+        X = standardize_X(self.model[0].out_shape, X)
         preds = []
         for xmb in self.iterator.iterX(X):
             pred = self._predict(xmb)
             preds.append(pred)
-        return np.vstack(preds)
+        preds = np.vstack(preds)
+        if argmax:
+            preds = np.argmax(preds, axis=1)
+        return preds
+
+    def predict_proba(self, X):
+        return self.predict(X, argmax=False)

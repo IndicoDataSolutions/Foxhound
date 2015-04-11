@@ -107,6 +107,54 @@ class Conv(object):
     def update(self, cost):
         return self.update_fn(self.params, cost)
 
+class CPUConv(object):
+
+    def __init__(self, n_filters=32, filter_shape=(3, 3), padding='same', stride=(1, 1), init_fn='orthogonal', update_fn='nag'):
+        self.n_filters = n_filters
+
+        if isinstance(filter_shape, int):
+            filter_shape = (filter_shape, filter_shape)
+        self.filter_shape = filter_shape
+
+        if padding != 'same':
+            raise NotImplementedError('Only same padding supported right now!')
+        self.padding = padding
+
+        if isinstance(stride, int):
+            stride = (stride, stride)
+        if stride != (1, 1):
+            raise NotImplementedError('Only (1, 1) stride supported right now!')
+        self.stride = stride
+
+        self.init_fn = instantiate(inits, init_fn)
+        self.update_fn = instantiate(updates, update_fn)
+
+    def connect(self, l_in):
+        self.l_in = l_in
+        self.in_shape = self.l_in.out_shape
+        self.out_shape = [
+            self.in_shape[0],
+            self.n_filters, 
+            self.in_shape[2], 
+            self.in_shape[3]
+        ]
+        print self.out_shape
+
+    def init(self):
+        self.w = self.init_fn((self.n_filters, self.in_shape[1], self.filter_shape[0], self.filter_shape[1]))
+        self.params = [self.w]
+
+    def op(self, state):
+        """ Benanne lasange same for cpu """
+        X = self.l_in.op(state=state)
+        out = T.nnet.conv2d(X, self.w, subsample=self.stride, border_mode='full')
+        shift_x = (self.filter_shape[0] - 1) // 2
+        shift_y = (self.filter_shape[1] - 1) // 2
+        return out[:, :, shift_x:self.out_shape[2] + shift_x, shift_y:self.out_shape[3] + shift_y]
+
+    def update(self, cost):
+        return self.update_fn(self.params, cost)
+
 class Project(object):
 
     def __init__(self, dim=256, init_fn='orthogonal', update_fn='nag'):
