@@ -6,13 +6,22 @@ import updates
 import numpy as np
 from theano.tensor.extra_ops import repeat
 from theano.tensor.signal.downsample import max_pool_2d
-from theano.sandbox.cuda.dnn import dnn_conv
+from theano.sandbox.cuda.dnn import dnn_conv, dnn_pool
 
 from utils import instantiate
 from theano_utils import shared0s
 
-def same_padding(n):
+def same_pad(n):
     return int(np.floor(n / 2.))
+
+def valid_shapes(shapes, axis):
+    match = shapes[0]
+    del match[axis]
+    for shape in shapes:
+        del shape[axis]
+        if not all(a == b for a, b in zip(match, shape)):
+            return False
+    return True
 
 class Input(object):
 
@@ -24,14 +33,31 @@ class Input(object):
     def op(self, state):
         return self.X
 
+class Concatenate(object):
+
+    def __init__(self, ops_in, axis):
+        self.axis = axis
+
+        self.ops_in = ops_in
+        op_shapes = [op_in.out_shape for op_in in op_ins]
+        if not valid_shapes(op_shapes, self.axis):
+            raise ValueError('Inputs to be concatenated do not have proper shape.')
+        else:
+            self.out_shape = op_shapes[0]
+            self.out_shape[self.axis] = sum(shape[self.axis] for shape in in_shapes)
+        print self.out_shape
+
+    def op(self, state):
+        X = [op_in.op(state=state) for op_in in self.ops_in]
+        return T.concatenate(X, axis=self.axis)
+
 class Flatten(object):
 
-    def __init__(self, dim):
+    def __init__(self, op_in, dim):
         self.dim = dim
 
-    def connect(self, l_in):
-        self.l_in = l_in
-        self.in_shape = l_in.out_shape
+        self.op_in = op_in
+        self.in_shape = op_in.out_shape
         if self.dim == len(self.in_shape):
             self.out_shape = self.in_shape
         else:
@@ -39,18 +65,17 @@ class Flatten(object):
         print self.out_shape
 
     def op(self, state):
-        X = self.l_in.op(state=state)
+        X = self.op_in.op(state=state)
         return T.flatten(X, outdim=self.dim)
 
 class MaxPool(object):
-    def __init__(self, pool_size):
+    def __init__(self, op_in, pool_size):
         if isinstance(pool_size, int):
             pool_size = (pool_size, pool_size)
         self.pool_size = pool_size
 
-    def connect(self, l_in):
-        self.l_in = l_in
-        self.in_shape = self.l_in.out_shape
+        self.op_in = op_in
+        self.in_shape = self.op_in.out_shape
         self.out_shape = [
             self.in_shape[0],
             self.in_shape[1],
@@ -60,23 +85,49 @@ class MaxPool(object):
         print self.out_shape
 
     def op(self, state):
-        X = self.l_in.op(state=state)
+        X = self.op_in.op(state=state)
         return max_pool_2d(X, self.pool_size)
+
+class DnnPool(object):
+    def __init__(self, op_in, pool_shape=(2, 2), stride=(2, 2), pad=(0, 0)):
+        if isinstance(pool_shape, int):
+            pool_shape = (pool_shape, pool_shape)
+        self.pool_shape = pool_shape
+        if isinstance(stride, int):
+            stride = (stride, stride)
+        self.stride = stride
+        if isinstance(pad, int):
+            pad = (pad, pad)
+        self.pad = pad
+
+        self.op_in = op_in
+        self.in_shape = self.op_in.out_shape
+        self.out_shape = [
+            self.in_shape[0],
+            self.in_shape[1], 
+            (self.in_shape[2] - self.pool_shape[0] + self.pad[0] * 2)/self.stride[0] + 1, 
+            (self.in_shape[3] - self.pool_shape[1] + self.pad[1] * 2)/self.stride[1] + 1
+        ]
+        print self.out_shape
+
+    def op(self, state):
+        X = self.op_in.op(state=state)
+        return dnn_pool(X, ws=self.pool_shape, stride=self.stride, pad=self.pad)
 
 class Conv(object):
 
-    def __init__(self, n_filters=32, filter_shape=(3, 3), padding='same', stride=(1, 1), init_fn='orthogonal', update_fn='nag'):
+    def __init__(self, op_in, n_filters=32, filter_shape=(3, 3), pad='same', stride=(1, 1), init_fn='orthogonal', update_fn='nag'):
         self.n_filters = n_filters
 
         if isinstance(filter_shape, int):
             filter_shape = (filter_shape, filter_shape)
         self.filter_shape = filter_shape
 
-        if isinstance(padding, int):
-            padding = (padding, padding) 
-        elif padding == 'same':
-            padding = (same_padding(filter_shape[0]), same_padding(filter_shape[1]))
-        self.padding = padding
+        if isinstance(pad, int):
+            pad = (pad, pad) 
+        elif pad == 'same':
+            pad = (same_pad(filter_shape[0]), same_pad(filter_shape[1]))
+        self.pad = pad
 
         if isinstance(stride, int):
             stride = (stride, stride)
@@ -85,14 +136,13 @@ class Conv(object):
         self.init_fn = instantiate(inits, init_fn)
         self.update_fn = instantiate(updates, update_fn)
 
-    def connect(self, l_in):
-        self.l_in = l_in
-        self.in_shape = self.l_in.out_shape
+        self.op_in = op_in
+        self.in_shape = self.op_in.out_shape
         self.out_shape = [
             self.in_shape[0],
             self.n_filters, 
-            (self.in_shape[2] - self.filter_shape[0] + self.padding[0] * 2)/self.stride[0] + 1, 
-            (self.in_shape[3] - self.filter_shape[1] + self.padding[1] * 2)/self.stride[1] + 1
+            (self.in_shape[2] - self.filter_shape[0] + self.pad[0] * 2)/self.stride[0] + 1, 
+            (self.in_shape[3] - self.filter_shape[1] + self.pad[1] * 2)/self.stride[1] + 1
         ]
         print self.out_shape
 
@@ -101,24 +151,24 @@ class Conv(object):
         self.params = [self.w]
 
     def op(self, state):
-        X = self.l_in.op(state=state)
-        return dnn_conv(X, self.w, subsample=self.stride, border_mode=self.padding)
+        X = self.op_in.op(state=state)
+        return dnn_conv(X, self.w, subsample=self.stride, border_mode=self.pad)
 
     def update(self, cost):
         return self.update_fn(self.params, cost)
 
 class CPUConv(object):
 
-    def __init__(self, n_filters=32, filter_shape=(3, 3), padding='same', stride=(1, 1), init_fn='orthogonal', update_fn='nag'):
+    def __init__(self, op_in, n_filters=32, filter_shape=(3, 3), pad='same', stride=(1, 1), init_fn='orthogonal', update_fn='nag'):
         self.n_filters = n_filters
 
         if isinstance(filter_shape, int):
             filter_shape = (filter_shape, filter_shape)
         self.filter_shape = filter_shape
 
-        if padding != 'same':
-            raise NotImplementedError('Only same padding supported right now!')
-        self.padding = padding
+        if pad != 'same':
+            raise NotImplementedError('Only same pad supported right now!')
+        self.pad = pad
 
         if isinstance(stride, int):
             stride = (stride, stride)
@@ -129,9 +179,8 @@ class CPUConv(object):
         self.init_fn = instantiate(inits, init_fn)
         self.update_fn = instantiate(updates, update_fn)
 
-    def connect(self, l_in):
-        self.l_in = l_in
-        self.in_shape = self.l_in.out_shape
+        self.op_in = op_in
+        self.in_shape = self.op_in.out_shape
         self.out_shape = [
             self.in_shape[0],
             self.n_filters, 
@@ -146,7 +195,7 @@ class CPUConv(object):
 
     def op(self, state):
         """ Benanne lasange same for cpu """
-        X = self.l_in.op(state=state)
+        X = self.op_in.op(state=state)
         out = T.nnet.conv2d(X, self.w, subsample=self.stride, border_mode='full')
         shift_x = (self.filter_shape[0] - 1) // 2
         shift_y = (self.filter_shape[1] - 1) // 2
@@ -157,14 +206,13 @@ class CPUConv(object):
 
 class Project(object):
 
-    def __init__(self, dim=256, init_fn='orthogonal', update_fn='nag'):
+    def __init__(self, op_in, dim=256, init_fn='orthogonal', update_fn='nag'):
         self.dim = dim
         self.init_fn = instantiate(inits, init_fn)
         self.update_fn = instantiate(updates, update_fn)
 
-    def connect(self, l_in):
-        self.l_in = l_in
-        self.in_shape = l_in.out_shape
+        self.op_in = op_in
+        self.in_shape = op_in.out_shape
         self.out_shape = [self.in_shape[0], self.dim]
         print self.out_shape
 
@@ -173,7 +221,7 @@ class Project(object):
         self.params = [self.w]
 
     def op(self, state):
-        X = self.l_in.op(state=state)
+        X = self.op_in.op(state=state)
         return T.dot(X, self.w)
 
     def update(self, cost):
@@ -181,16 +229,15 @@ class Project(object):
 
 class Dropout(object):
 
-    def __init__(self, p_drop=0.5):
+    def __init__(self, op_in, p_drop=0.5):
         self.p_drop = p_drop
 
-    def connect(self, l_in):
-        self.l_in = l_in
-        self.in_shape = l_in.out_shape
+        self.op_in = op_in
+        self.in_shape = op_in.out_shape
         self.out_shape = self.in_shape
 
     def op(self, state):
-        X = self.l_in.op(state=state)
+        X = self.op_in.op(state=state)
         retain_prob = 1 - self.p_drop
         t_rng = state['t_rng']   
         if state['dropout']:
@@ -199,15 +246,14 @@ class Dropout(object):
 
 class Shift(object):
 
-    def __init__(self, init_fn='constant', update_fn='nag'):
+    def __init__(self, op_in, init_fn='constant', update_fn='nag'):
         self.init_fn = instantiate(inits, init_fn)
         self.update_fn = instantiate(updates, update_fn)
 
-    def connect(self, l_in):
-        self.l_in = l_in
-        self.in_shape = l_in.out_shape
+        self.op_in = op_in
+        self.in_shape = op_in.out_shape
         self.out_shape = self.in_shape
-        n_dim_in = len(l_in.out_shape)
+        n_dim_in = len(op_in.out_shape)
         if n_dim_in == 4:
             self.conv = True
         elif n_dim_in == 2:
@@ -224,7 +270,7 @@ class Shift(object):
         self.params = [self.b]
 
     def op(self, state):
-        X = self.l_in.op(state=state)
+        X = self.op_in.op(state=state)
         if self.conv:
             return X + self.b.dimshuffle('x', 0, 'x', 'x')
         else:
@@ -235,21 +281,20 @@ class Shift(object):
 
 class Activation(object):
 
-    def __init__(self, activation, init_fn=inits.Constant(c=0.25), update_fn='nag'):
+    def __init__(self, op_in, activation, init_fn=inits.Constant(c=0.25), update_fn='nag'):
         self.activation = instantiate(activations, activation)
         self.init_fn = instantiate(inits, init_fn)
         self.update_fn = instantiate(updates, update_fn)
 
-    def connect(self, l_in):
-        self.l_in = l_in
-        self.in_shape = l_in.out_shape
+        self.op_in = op_in
+        self.in_shape = op_in.out_shape
         self.out_shape = self.in_shape
 
     def init(self):
         self.params = []
 
     def op(self, state):
-        X = self.l_in.op(state=state)
+        X = self.op_in.op(state=state)
         return self.activation(X)
 
     def update(self, cost):
@@ -257,13 +302,12 @@ class Activation(object):
 
 class BatchNormalize(object):
 
-    def __init__(self, update_fn='nag', e=1e-8):
+    def __init__(self, op_in, update_fn='nag', e=1e-8):
         self.update_fn = instantiate(updates, update_fn)
         self.e = e
 
-    def connect(self, l_in):
-        self.l_in = l_in
-        self.in_shape = l_in.out_shape
+        self.op_in = op_in
+        self.in_shape = op_in.out_shape
         self.out_shape = self.in_shape
 
     def init(self):
@@ -272,7 +316,7 @@ class BatchNormalize(object):
         self.params = [self.g, self.b]
 
     def op(self, state):
-        X = self.l_in.op(state=state)
+        X = self.op_in.op(state=state)
 
         u = T.mean(X, axis=0)
         s = T.mean(T.sqr(X - u), axis=0)
@@ -284,33 +328,31 @@ class BatchNormalize(object):
 
 class Dimshuffle(object):
 
-    def __init__(self, shuffle):
+    def __init__(self, op_in, shuffle):
         self.shuffle = shuffle
 
-    def connect(self, l_in):
-        self.l_in = l_in
-        self.in_shape = l_in.out_shape
+        self.op_in = op_in
+        self.in_shape = op_in.out_shape
         self.out_shape = [self.in_shape[idx] for idx in self.shuffle]
         print self.out_shape
 
     def op(self, state):
-        X = self.l_in.op(state=state)
+        X = self.op_in.op(state=state)
         return X.dimshuffle(*self.shuffle)
 
 class Slice(object):
 
-    def __init__(self, fn=lambda x:x[-1], shape_fn=lambda x:x[1:]):
+    def __init__(self, op_in, fn=lambda x:x[-1], shape_fn=lambda x:x[1:]):
         self.fn = fn
         self.shape_fn = shape_fn
 
-    def connect(self, l_in):
-        self.l_in = l_in
-        self.in_shape = l_in.out_shape
+        self.op_in = op_in
+        self.in_shape = op_in.out_shape
         self.out_shape = self.shape_fn(self.in_shape)
         print self.out_shape
 
     def op(self, state):
-        X = self.l_in.op(state=state)
+        X = self.op_in.op(state=state)
         return self.fn(X) 
 
 # class Last(object):
@@ -324,7 +366,7 @@ class Slice(object):
 
 class RNN(object):
 
-    def __init__(self, dim=256, activation='rectify', proj_init_fn='orthogonal', rec_init_fn='identity',
+    def __init__(self, op_in, dim=256, activation='rectify', proj_init_fn='orthogonal', rec_init_fn='identity',
                  bias_init_fn='constant', update_fn='nag'):
         self.dim = dim
         self.activation = instantiate(activations, activation)
@@ -333,9 +375,8 @@ class RNN(object):
         self.bias_init_fn = instantiate(inits, bias_init_fn)
         self.update_fn = instantiate(updates, update_fn)
 
-    def connect(self, l_in):
-        self.l_in = l_in
-        self.in_shape = l_in.out_shape
+        self.op_in = op_in
+        self.in_shape = op_in.out_shape
         self.out_shape = self.in_shape[:-1] + [self.dim]
         print self.out_shape
 
@@ -352,7 +393,7 @@ class RNN(object):
         return h_t
 
     def op(self, state):
-        X = self.l_in.op(state=state)
+        X = self.op_in.op(state=state)
         x = T.dot(X, self.w) + self.b
         out, _ = theano.scan(self.step,
             sequences=[x],
@@ -366,7 +407,7 @@ class RNN(object):
 
 class GRU(object):
 
-    def __init__(self, dim=256, activation='tanh', gate_activation='SteeperSigmoid', proj_init_fn='orthogonal',
+    def __init__(self, op_in, dim=256, activation='tanh', gate_activation='SteeperSigmoid', proj_init_fn='orthogonal',
                  rec_init_fn='orthogonal', bias_init_fn='constant', update_fn='nag'):
         self.dim = dim
         self.proj_init_fn = instantiate(inits, proj_init_fn)
@@ -376,9 +417,8 @@ class GRU(object):
         self.activation = instantiate(activations, activation)
         self.gate_activation = instantiate(activations, gate_activation)
 
-    def connect(self, l_in):
-        self.l_in = l_in
-        self.in_shape = l_in.out_shape
+        self.op_in = op_in
+        self.in_shape = op_in.out_shape
         self.out_shape = self.in_shape[:-1] + [self.dim]
         print self.out_shape
 
@@ -405,7 +445,7 @@ class GRU(object):
         return h_t
 
     def op(self, state):
-        X = self.l_in.op(state=state)
+        X = self.op_in.op(state=state)
         x_z = T.dot(X, self.w_z) + self.b_z
         x_r = T.dot(X, self.w_r) + self.b_r
         x_h = T.dot(X, self.w_h) + self.b_h

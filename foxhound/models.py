@@ -13,21 +13,33 @@ import iterators
 from utils import instantiate
 from preprocessing import standardize_X, standardize_Y
 
+def flatten(container):
+    for i in container:
+        if isinstance(i, list) or isinstance(i, tuple):
+            for j in flatten(i):
+                yield j
+        else:
+            yield i
+
 def init(model):
-    print model[0].out_shape
-    for i in range(1, len(model)):
-        model[i].connect(model[i-1])
-        if hasattr(model[i], 'init'):
-            model[i].init()
+    for op in flatten(model):
+        print op
+        if hasattr(op, 'init'):
+            print 'called'
+            op.init()
     return model
+
+def init(model):
+    while hasattr(model[-1], 'op_in') or hasattr(model[-1], 'ops_in'):
+        if hasattr(model[-1], 'init'):
+            model[-1].init()
+            init(model[:-1])
 
 def collect_updates(model, cost):
     updates = []
-    for op in model[1:]:
+    for op in flatten(model):
         if hasattr(op, 'update'):
             updates.extend(op.update(cost))
-        else:
-            print 'no update op'
     return updates
 
 class Network(object):
@@ -54,7 +66,7 @@ class Network(object):
         y_tr = self.model[-1].op({'t_rng':t_rng, 'dropout':True})
         y_te = self.model[-1].op({'t_rng':t_rng, 'dropout':False})
         
-        self.X = self.model[0].X
+        self.Xs = self.model[0].X
         self.Y = T.TensorType(theano.config.floatX, (False,)*(len(model[-1].out_shape)))()
         cost = self.cost(self.Y, y_tr)
 
