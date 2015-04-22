@@ -34,6 +34,7 @@ class Linear(object):
             X, Y = shuffle(X, Y)
 
         for xmb, ymb in iter_data(X, Y, size=self.size):
+            # print np.asarray(xmb).shape, np.asarray(ymb).shape
             if self.train_transform is not None:
                 xmb = self.train_transform(xmb)
             xmb = self.x_dtype(xmb)

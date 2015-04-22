@@ -4,17 +4,24 @@ import random
 
 from utils import numpy_array
 
-class FlatToImg(object):
+# class FlatToImg(object):
 
-	def __init__(self, w, h, c):
-		self.w = w
-		self.h = h
-		self.c = c
+# 	def __init__(self, w, h, c):
+# 		self.w = w
+# 		self.h = h
+# 		self.c = c
 
-	def __call__(self, X):
-		if not numpy_array(X):
-			X = np.asarray(X)
-		return X.reshape(-1, self.w, self.h, self.c)		
+# 	def __call__(self, X):
+# 		if not numpy_array(X):
+# 			X = np.asarray(X)
+# 		return X.reshape(-1, self.w, self.h, self.c)
+
+def FlatToImg(X, w, h, c):
+	# print w, h, c, w*h*c
+	if not numpy_array(X):
+		X = np.asarray(X)
+	# print X.shape		
+	return X.reshape(-1, w, h, c)	
 
 def ImgToConv(X):
 	if not numpy_array(X):
@@ -31,7 +38,25 @@ def ZeroOneScale(X):
 		X = np.asarray(X)
 	return X / 255.
 
-def Fliplr(X):
+def Reflect(X):
+	Xt = []
+	for x in X:
+		if random.random() > 0.5:
+			x = np.flipud(x)
+		if random.random() > 0.5:
+			x = np.fliplr(x)
+		Xt.append(x)
+	return Xt
+
+def FlipVertical(X):
+	Xt = []
+	for x in X:
+		if random.random() > 0.5:
+			x = np.flipud(x)
+		Xt.append(x)
+	return Xt
+
+def FlipHorizontal(X):
 	Xt = []
 	for x in X:
 		if random.random() > 0.5:
