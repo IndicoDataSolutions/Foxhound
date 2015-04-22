@@ -2,6 +2,9 @@ import inspect
 import types
 import numpy as np
 
+def numpy_array(X):
+    return type(X).__module__ == np.__name__
+
 def iter_data(*data, **kwargs):
     size = kwargs.get('size', 128)
     batches = len(data[0]) / size

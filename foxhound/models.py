@@ -26,8 +26,20 @@ def collect_updates(model, cost):
     for op in model[1:]:
         if hasattr(op, 'update'):
             updates.extend(op.update(cost))
-        else:
-            print 'no update op'
+    return updates
+
+def collect_infer_updates(model):
+    updates = []
+    for op in model[1:]:
+        if hasattr(op, 'infer_update'):
+            updates.extend(op.infer_update)
+    return updates
+
+def collect_reset_updates(model):
+    updates = []
+    for op in model[1:]:
+        if hasattr(op, 'reset_update'):
+            updates.extend(op.reset_update())
     return updates
 
 class Network(object):
@@ -44,6 +56,8 @@ class Network(object):
                     self.cost = instantiate(costs, 'cce')
                 else:
                     self.cost = instantiate(costs, 'mse')
+            else:
+                self.cost = instantiate(costs, 'mse')
 
         self.verbose = verbose
         self.seed = seed
@@ -51,19 +65,22 @@ class Network(object):
         self.iterator = instantiate(iterators, iterator)
 
         t_rng = RandomStreams(self.seed)
-        y_tr = self.model[-1].op({'t_rng':t_rng, 'dropout':True})
-        y_te = self.model[-1].op({'t_rng':t_rng, 'dropout':False})
-        
+        y_tr = self.model[-1].op({'t_rng':t_rng, 'dropout':True, 'bn_active':True, 'infer':False})
+        y_te = self.model[-1].op({'t_rng':t_rng, 'dropout':False, 'bn_active':False, 'infer':False})
+        y_inf = self.model[-1].op({'t_rng':t_rng, 'dropout':False, 'bn_active':True, 'infer':True})
         self.X = self.model[0].X
         self.Y = T.TensorType(theano.config.floatX, (False,)*(len(model[-1].out_shape)))()
         cost = self.cost(self.Y, y_tr)
 
         self.updates = collect_updates(self.model, cost)
+        self.infer_updates = collect_infer_updates(self.model)
+        self.reset_updates = collect_reset_updates(self.model)
         self._train = theano.function([self.X, self.Y], cost, updates=self.updates)
         self._predict = theano.function([self.X], y_te)
+        self._infer = theano.function([self.X], y_inf, updates=self.infer_updates)
+        self._reset = theano.function([], updates=self.reset_updates)
 
     def fit(self, trX, trY, n_iter=1):
-        trX = standardize_X(self.model[0].out_shape, trX)
         out_shape = self.model[-1].out_shape
         trY = standardize_Y(out_shape, trY)
         n = 0.
@@ -82,11 +99,22 @@ class Network(object):
                     sys.stdout.write("\rIter %d Seen %d samples Avg cost %0.4f Time left %d seconds" % (e, n, np.mean(epoch_costs[-250:]), time_left))
                     sys.stdout.flush()
             costs.extend(epoch_costs)
-        print
+
+            status = "Iter %d Seen %d samples Avg cost %0.4f Time elapsed %d seconds" % (e, n, np.mean(epoch_costs[-250:]), time() - t)
+            if self.verbose >= 2:
+                sys.stdout.write("\r"+status) 
+                sys.stdout.flush()
+                sys.stdout.write("\n")
+            elif self.verbose == 1:
+                print status
         return costs
 
+    def infer(self, X):
+        self._reset()
+        for xmb in self.iterator.iterX(X):
+            self._infer(xmb)
+
     def predict(self, X, argmax=True):
-        X = standardize_X(self.model[0].out_shape, X)
         preds = []
         for xmb in self.iterator.iterX(X):
             pred = self._predict(xmb)

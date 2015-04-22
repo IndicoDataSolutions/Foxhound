@@ -1,8 +1,7 @@
 import numpy as np
 import costs
 
-def numpy_array(X):
-	return type(X).__module__ == np.__name__
+from utils import numpy_array
 
 def standardize_X(shape, X):
 	if not numpy_array(X):
@@ -24,7 +23,7 @@ def standardize_Y(shape, Y):
 		else:
 			return Y
 	else:
-		raise ValueError('Not able to standardize label input - check format/shape')
+		return Y
 
 def one_hot(X, n=None, negative_class=0.):
     X = np.asarray(X).flatten()

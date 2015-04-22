@@ -6,12 +6,12 @@ import updates
 import numpy as np
 from theano.tensor.extra_ops import repeat
 from theano.tensor.signal.downsample import max_pool_2d
-from theano.sandbox.cuda.dnn import dnn_conv
+from theano.sandbox.cuda.dnn import dnn_conv, dnn_pool
 
 from utils import instantiate
-from theano_utils import shared0s
+from theano_utils import shared0s, sharedX
 
-def same_padding(n):
+def same_pad(n):
     return int(np.floor(n / 2.))
 
 class Input(object):
@@ -26,27 +26,28 @@ class Input(object):
 
 class Flatten(object):
 
-    def __init__(self, dim):
-        self.dim = dim
+    def __init__(self, axes):
+        self.axes = axes
 
     def connect(self, l_in):
         self.l_in = l_in
         self.in_shape = l_in.out_shape
-        if self.dim == len(self.in_shape):
+        if self.axes == len(self.in_shape):
             self.out_shape = self.in_shape
         else:
-            self.out_shape = self.in_shape[:self.dim-1] + [np.prod(self.in_shape[self.dim-1:])]
+            self.out_shape = self.in_shape[:self.axes-1] + [np.prod(self.in_shape[self.axes-1:])]
         print self.out_shape
 
     def op(self, state):
         X = self.l_in.op(state=state)
-        return T.flatten(X, outdim=self.dim)
+        return T.flatten(X, outdim=self.axes)
 
 class MaxPool(object):
-    def __init__(self, pool_size):
-        if isinstance(pool_size, int):
-            pool_size = (pool_size, pool_size)
-        self.pool_size = pool_size
+
+    def __init__(self, shape):
+        if isinstance(shape, int):
+            shape = (shape, shape)
+        self.shape = shape
 
     def connect(self, l_in):
         self.l_in = l_in
@@ -54,29 +55,92 @@ class MaxPool(object):
         self.out_shape = [
             self.in_shape[0],
             self.in_shape[1],
-            int(np.ceil(float(self.in_shape[2]) / self.pool_size[0])),
-            int(np.ceil(float(self.in_shape[3]) / self.pool_size[1]))
+            int(np.ceil(float(self.in_shape[2]) / self.shape[0])),
+            int(np.ceil(float(self.in_shape[3]) / self.shape[1]))
         ]
         print self.out_shape
 
     def op(self, state):
         X = self.l_in.op(state=state)
-        return max_pool_2d(X, self.pool_size)
+        return max_pool_2d(X, self.shape)
+
+class CUDNNPool(object):
+
+    def __init__(self, shape, stride, pad=(0, 0), mode='max'):
+        if isinstance(shape, int):
+            shape = (shape, shape)
+        self.shape = shape
+
+        if isinstance(stride, int):
+            stride = (stride, stride)
+        self.stride = stride
+
+        if isinstance(pad, int):
+            pad = (pad, pad)
+        self.pad = pad
+
+        self.mode = mode
+
+    def connect(self, l_in):
+        self.l_in = l_in
+        self.in_shape = self.l_in.out_shape
+        self.out_shape = [
+            self.in_shape[0],
+            self.in_shape[1],
+            (self.in_shape[2] - self.shape[0] + self.pad[0]*2) // self.stride[0] + 1,
+            (self.in_shape[3] - self.shape[1] + self.pad[1]*2) // self.stride[1] + 1
+        ]
+        print self.out_shape
+
+    def op(self, state):
+        X = self.l_in.op(state=state)
+        return dnn_pool(X, self.shape, self.stride, self.mode, self.pad)
+
+# class DnnPool(object):
+#     def __init__(self, l_in, shape, stride, pad=(0, 0), mode='max'):
+#         self.l_in = l_in
+#         self.shape = shape
+#         self.stride = stride
+#         self.mode = mode
+#         self.pad = pad
+#         self.output_shape = l_in.output_shape
+#         self.output_shape[1] = (self.output_shape[1] - self.shape[0] + self.pad[0]*2) // self.stride[0] + 1
+#         self.output_shape[2] = (self.output_shape[2] - self.shape[1] + self.pad[1]*2) // self.stride[1] + 1
+#         print 
+#         print l_in.output_shape
+#         print self.output_shape
+
+#     def output(self, dropout_active=True, bn_active=True):
+#         X = self.l_in.output(dropout_active=dropout_active, bn_active=bn_active)
+#         return dnn_pool(X, self.shape, self.stride, self.mode, self.pad)
+
+# class FilterPool2D(object):
+#     def __init__(self, l_in, fn=T.max):
+#         self.l_in = l_in
+#         self.output_shape = l_in.output_shape
+#         self.output_shape[-1] = 1
+#         self.output_shape[-2] = 1
+#         self.fn = fn
+#         print self.output_shape, 'filter pool'
+
+#     def output(self, dropout_active=True, bn_active=True):
+#         X = self.l_in.output(dropout_active=dropout_active, bn_active=bn_active)
+#         return self.fn(X.reshape((X.shape[0], X.shape[1], -1)), axis=2)
 
 class Conv(object):
 
-    def __init__(self, n_filters=32, filter_shape=(3, 3), padding='same', stride=(1, 1), init_fn='orthogonal', update_fn='nag'):
-        self.n_filters = n_filters
+    def __init__(self, n=32, shape=(3, 3), pad='same', stride=(1, 1), init_fn='orthogonal', update_fn='nag'):
+        self.n = n
 
-        if isinstance(filter_shape, int):
-            filter_shape = (filter_shape, filter_shape)
-        self.filter_shape = filter_shape
+        if isinstance(shape, int):
+            shape = (shape, shape)
+        self.shape = shape
 
-        if isinstance(padding, int):
-            padding = (padding, padding) 
-        elif padding == 'same':
-            padding = (same_padding(filter_shape[0]), same_padding(filter_shape[1]))
-        self.padding = padding
+        if isinstance(pad, int):
+            pad = (pad, pad) 
+        elif pad == 'same':
+            pad = (same_pad(shape[0]), same_pad(shape[1]))
+        self.pad = pad
 
         if isinstance(stride, int):
             stride = (stride, stride)
@@ -90,35 +154,35 @@ class Conv(object):
         self.in_shape = self.l_in.out_shape
         self.out_shape = [
             self.in_shape[0],
-            self.n_filters, 
-            (self.in_shape[2] - self.filter_shape[0] + self.padding[0] * 2)/self.stride[0] + 1, 
-            (self.in_shape[3] - self.filter_shape[1] + self.padding[1] * 2)/self.stride[1] + 1
+            self.n, 
+            (self.in_shape[2] - self.shape[0] + self.pad[0] * 2)/self.stride[0] + 1, 
+            (self.in_shape[3] - self.shape[1] + self.pad[1] * 2)/self.stride[1] + 1
         ]
         print self.out_shape
 
     def init(self):
-        self.w = self.init_fn((self.n_filters, self.in_shape[1], self.filter_shape[0], self.filter_shape[1]))
+        self.w = self.init_fn((self.n, self.in_shape[1], self.shape[0], self.shape[1]))
         self.params = [self.w]
 
     def op(self, state):
         X = self.l_in.op(state=state)
-        return dnn_conv(X, self.w, subsample=self.stride, border_mode=self.padding)
+        return dnn_conv(X, self.w, subsample=self.stride, border_mode=self.pad)
 
     def update(self, cost):
         return self.update_fn(self.params, cost)
 
 class CPUConv(object):
 
-    def __init__(self, n_filters=32, filter_shape=(3, 3), padding='same', stride=(1, 1), init_fn='orthogonal', update_fn='nag'):
-        self.n_filters = n_filters
+    def __init__(self, n=32, shape=(3, 3), pad='same', stride=(1, 1), init_fn='orthogonal', update_fn='nag'):
+        self.n = n
 
-        if isinstance(filter_shape, int):
-            filter_shape = (filter_shape, filter_shape)
-        self.filter_shape = filter_shape
+        if isinstance(shape, int):
+            shape = (shape, shape)
+        self.shape = shape
 
-        if padding != 'same':
-            raise NotImplementedError('Only same padding supported right now!')
-        self.padding = padding
+        if pad != 'same':
+            raise NotImplementedError('Only same pad supported right now!')
+        self.pad = pad
 
         if isinstance(stride, int):
             stride = (stride, stride)
@@ -134,22 +198,22 @@ class CPUConv(object):
         self.in_shape = self.l_in.out_shape
         self.out_shape = [
             self.in_shape[0],
-            self.n_filters, 
+            self.n, 
             self.in_shape[2], 
             self.in_shape[3]
         ]
         print self.out_shape
 
     def init(self):
-        self.w = self.init_fn((self.n_filters, self.in_shape[1], self.filter_shape[0], self.filter_shape[1]))
+        self.w = self.init_fn((self.n, self.in_shape[1], self.shape[0], self.shape[1]))
         self.params = [self.w]
 
     def op(self, state):
         """ Benanne lasange same for cpu """
         X = self.l_in.op(state=state)
         out = T.nnet.conv2d(X, self.w, subsample=self.stride, border_mode='full')
-        shift_x = (self.filter_shape[0] - 1) // 2
-        shift_y = (self.filter_shape[1] - 1) // 2
+        shift_x = (self.shape[0] - 1) // 2
+        shift_y = (self.shape[1] - 1) // 2
         return out[:, :, shift_x:self.out_shape[2] + shift_x, shift_y:self.out_shape[3] + shift_y]
 
     def update(self, cost):
@@ -267,20 +331,59 @@ class BatchNormalize(object):
         self.out_shape = self.in_shape
 
     def init(self):
-        self.g = inits.Constant(c=1.)(self.out_shape[-1])
-        self.b = inits.Constant(c=0.)(self.out_shape[-1])
+        self.g = inits.Constant(c=1.)(self.out_shape[1])
+        self.b = inits.Constant(c=0.)(self.out_shape[1])
+        self.u = inits.Constant(c=0.)(self.out_shape[1])
+        self.s = inits.Constant(c=0.)(self.out_shape[1])
+        self.n = sharedX(0.)
         self.params = [self.g, self.b]
 
     def op(self, state):
         X = self.l_in.op(state=state)
 
-        u = T.mean(X, axis=0)
-        s = T.mean(T.sqr(X - u), axis=0)
-        X = (X - u) / T.sqrt(s + self.e)
-        return self.g*X + self.b
+        if len(self.out_shape) == 4:
+            if state['bn_active']:
+                u = T.mean(X, axis=[0, 2, 3])
+            else:
+                u = self.u/self.n
+            cb_u = u.dimshuffle('x', 0, 'x', 'x')
+            if state['bn_active']:
+                s = T.mean(T.sqr(X - cb_u), axis=[0, 2, 3])
+            else:
+                s = self.s/self.n
+            X = (X - cb_u) / T.sqrt(s.dimshuffle('x', 0, 'x', 'x') + self.e)
+            X = self.g.dimshuffle('x', 0, 'x', 'x')*X + self.b.dimshuffle('x', 0, 'x', 'x')
+        elif len(self.out_shape) == 2:
+            if state['bn_active']:
+                u = T.mean(X, axis=0)
+            else:
+                u = self.u/self.n
+            if state['bn_active']:
+                s = T.mean(T.sqr(X - u), axis=0)
+            else:
+                s = self.s/self.n
+            X = (X - u) / T.sqrt(s + self.e)
+            X = self.g*X + self.b
+        else:
+            raise NotImplementedError
+
+        if state['infer']:
+            self.infer_update = [
+                [self.u, self.u + u],
+                [self.s, self.s + s],
+                [self.n, self.n + 1.]
+            ]
+        return X
 
     def update(self, cost):
         return self.update_fn(self.params, cost)
+
+    def reset_update(self):
+        return [
+                [self.u, self.u * 0.],
+                [self.s, self.s * 0.],
+                [self.n, self.n * 0.]
+            ]
 
 class Dimshuffle(object):
 
