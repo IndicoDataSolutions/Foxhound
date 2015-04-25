@@ -96,36 +96,32 @@ class CUDNNPool(object):
         X = self.l_in.op(state=state)
         return dnn_pool(X, self.shape, self.stride, self.mode, self.pad)
 
-# class DnnPool(object):
-#     def __init__(self, l_in, shape, stride, pad=(0, 0), mode='max'):
-#         self.l_in = l_in
-#         self.shape = shape
-#         self.stride = stride
-#         self.mode = mode
-#         self.pad = pad
-#         self.output_shape = l_in.output_shape
-#         self.output_shape[1] = (self.output_shape[1] - self.shape[0] + self.pad[0]*2) // self.stride[0] + 1
-#         self.output_shape[2] = (self.output_shape[2] - self.shape[1] + self.pad[1]*2) // self.stride[1] + 1
-#         print 
-#         print l_in.output_shape
-#         print self.output_shape
+class FilterPool2D(object):
 
-#     def output(self, dropout_active=True, bn_active=True):
-#         X = self.l_in.output(dropout_active=dropout_active, bn_active=bn_active)
-#         return dnn_pool(X, self.shape, self.stride, self.mode, self.pad)
+    def __init__(self, fn=lambda x:T.mean(x, axis=2)):
+        if isinstance(fn, basestring):
+            if fn == 'rms':
+                fn = lambda x:T.sqrt(T.mean(x*x, axis=2) + 1e-6)
+            elif fn == 'max':
+                fn = lambda x:T.max(x, axis=2)
+            elif fn == 'mean':
+                fn = lambda x:T.mean(x, axis=2)
+            else:
+                raise NotImplementedError
+        self.fn = fn
 
-# class FilterPool2D(object):
-#     def __init__(self, l_in, fn=T.max):
-#         self.l_in = l_in
-#         self.output_shape = l_in.output_shape
-#         self.output_shape[-1] = 1
-#         self.output_shape[-2] = 1
-#         self.fn = fn
-#         print self.output_shape, 'filter pool'
+    def connect(self, l_in):
+        self.l_in = l_in
+        self.in_shape = self.l_in.out_shape
+        self.out_shape = [
+            self.in_shape[0],
+            self.in_shape[1],
+        ]
+        print self.out_shape
 
-#     def output(self, dropout_active=True, bn_active=True):
-#         X = self.l_in.output(dropout_active=dropout_active, bn_active=bn_active)
-#         return self.fn(X.reshape((X.shape[0], X.shape[1], -1)), axis=2)
+    def op(self, state):
+        X = self.l_in.op(state=state)
+        return self.fn(X.reshape((X.shape[0], X.shape[1], -1)))
 
 class Conv(object):
 
@@ -218,6 +214,38 @@ class CPUConv(object):
 
     def update(self, cost):
         return self.update_fn(self.params, cost)
+
+class Variational(object):
+
+    def __init__(self, dim=256, init_fn='orthogonal', update_fn='nag'):
+        self.dim = dim
+        self.init_fn = instantiate(inits, init_fn)
+        self.update_fn = instantiate(updates, update_fn)        
+
+    def connect(self, l_in):
+        self.l_in = l_in
+        self.in_shape = l_in.out_shape
+        self.out_shape = [self.in_shape[0], self.dim]
+        print self.out_shape
+
+    def init(self):
+        self.wmu = self.init_fn((self.in_shape[-1], self.out_shape[-1]))
+        self.wsigma = self.init_fn((self.in_shape[-1], self.out_shape[-1]))
+        self.params = [self.wmu, self.wsigma]
+
+    def op(self, state):
+        X = self.l_in.op(state=state)
+        self.mu = T.dot(X, self.wmu)
+        self.log_sigma = 0.5 * T.dot(X, self.wsigma) 
+        t_rng = state['t_rng'] 
+        if state['sample']:
+            Z = t_rng.normal(self.log_sigma.shape)
+        else:
+            Z = self.mu + T.exp(self.log_sigma) * t_rng.normal(self.log_sigma.shape)
+        return Z
+
+    def cost(self):
+        return 0.5 * T.sum(1 + 2*self.log_sigma - self.mu**2 - T.exp(2*self.log_sigma))
 
 class Project(object):
 
