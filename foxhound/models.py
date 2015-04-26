@@ -165,21 +165,22 @@ class VariationalNetwork(object):
         except:
             self.iterator = instantiate(async_iterators, iterator)
 
+        self.Z = T.matrix()
         t_rng = RandomStreams(self.seed)
         y_tr = self.model[-1].op({'t_rng':t_rng, 'dropout':True, 'bn_active':True, 'infer':False, 'sample':False})
         y_te = self.model[-1].op({'t_rng':t_rng, 'dropout':False, 'bn_active':False, 'infer':False, 'sample':False})
         y_inf = self.model[-1].op({'t_rng':t_rng, 'dropout':False, 'bn_active':True, 'infer':True, 'sample':False})
-        y_samp = self.model[-1].op({'t_rng':t_rng, 'dropout':False, 'bn_active':True, 'infer':True, 'sample':True})
+        y_samp = self.model[-1].op({'t_rng':t_rng, 'dropout':False, 'bn_active':True, 'infer':True, 'sample':self.Z})
         self.X = self.model[0].X
         self.Y = T.TensorType(theano.config.floatX, (False,)*(len(model[-1].out_shape)))()
-        cost = self.cost(self.Y, y_tr) - collect_cost(self.model)
+        cost = self.cost(self.Y, y_tr) + collect_cost(self.model)
 
         self.updates = collect_updates(self.model, cost)
         self.infer_updates = collect_infer_updates(self.model)
         self.reset_updates = collect_reset_updates(self.model)
         self._train = theano.function([self.X, self.Y], cost, updates=self.updates)
         self._predict = theano.function([self.X], y_te)
-        self._sample = theano.function([self.X], y_samp)
+        self._sample = theano.function([self.Z], y_samp)
         self._infer = theano.function([self.X], y_inf, updates=self.infer_updates)
         self._reset = theano.function([], updates=self.reset_updates)
 
@@ -232,10 +233,10 @@ class VariationalNetwork(object):
     def predict_proba(self, X):
         return self.predict(X, argmax=False)
 
-    def sample(self, X):
+    def sample(self, Z):
         samples = []
-        for xmb in self.iterator.iterX(X):
-            pred = self._sample(xmb)
+        for zmb in self.iterator.iterX(Z):
+            pred = self._sample(zmb)
             samples.append(pred)
         samples = np.vstack(samples)
         return samples        

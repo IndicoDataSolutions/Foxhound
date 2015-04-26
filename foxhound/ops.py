@@ -239,13 +239,14 @@ class Variational(object):
         self.log_sigma = 0.5 * T.dot(X, self.wsigma) 
         t_rng = state['t_rng'] 
         if state['sample']:
-            Z = t_rng.normal(self.log_sigma.shape)
+            Z = state['sample']
+            # Z = t_rng.normal(self.log_sigma.shape)
         else:
             Z = self.mu + T.exp(self.log_sigma) * t_rng.normal(self.log_sigma.shape)
         return Z
 
     def cost(self):
-        return 0.5 * T.sum(1 + 2*self.log_sigma - self.mu**2 - T.exp(2*self.log_sigma))
+        return -0.5 * T.sum(1 + 2*self.log_sigma - self.mu**2 - T.exp(2*self.log_sigma))
 
 class Project(object):
 
