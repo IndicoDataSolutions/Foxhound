@@ -16,8 +16,8 @@ def same_pad(n):
 
 class Input(object):
 
-    def __init__(self, shape):
-        self.X = T.TensorType(theano.config.floatX, (False,)*(len(shape)))()
+    def __init__(self, shape, dtype=theano.config.floatX):
+        self.X = T.TensorType(dtype, (False,)*(len(shape)))()
         print self.X.type
         self.out_shape = shape
 
@@ -41,6 +41,35 @@ class Flatten(object):
     def op(self, state):
         X = self.l_in.op(state=state)
         return T.flatten(X, outdim=self.axes)
+
+class Embedding(object):
+
+    def __init__(self, dim, n_embed, init_fn='uniform', update_fn='nag'):
+        self.dim = dim
+        self.n_embed = n_embed
+        self.init_fn = instantiate(inits, init_fn)
+        self.update_fn = instantiate(updates, update_fn)
+
+    def connect(self, l_in):
+        self.l_in = l_in
+        self.in_shape = self.l_in.out_shape
+        self.out_shape = [
+            self.in_shape[0],
+            self.in_shape[1],
+            self.dim
+        ]
+        print self.out_shape
+
+    def init(self):
+        self.w = self.init_fn((self.n_embed, self.dim))
+        self.params = [self.w]
+
+    def op(self, state):
+        X = self.l_in.op(state=state)
+        return self.w[X]
+
+    def update(self, cost):
+        return self.update_fn(self.params, cost)
 
 class MaxPool(object):
 

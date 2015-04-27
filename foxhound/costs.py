@@ -5,7 +5,7 @@ def CategoricalCrossEntropy(y_true, y_pred):
     return T.nnet.categorical_crossentropy(y_pred, y_true).mean()
 
 def BinaryCrossEntropy(y_true, y_pred):
-    return T.nnet.binary_crossentropy(y_pred, y_true).sum()
+    return T.nnet.binary_crossentropy(y_pred, y_true).mean()
 
 def MeanSquaredError(y_true, y_pred):
     return T.sqr(y_pred - y_true).mean()

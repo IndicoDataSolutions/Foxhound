@@ -122,23 +122,46 @@ class Network(object):
                 print status
         return costs
 
-    def infer(self, X):
-        self._reset()
+    def infer_iterator(self, X):
         for xmb in self.iterator.iterX(X):
             self._infer(xmb)
 
-    def predict(self, X, argmax=True):
+    def infer_idxs(self, X):
+        for xmb, idxmb in self.iterator.iterX(X):
+            pred = self._infer(xmb)
+
+    def infer(self, X):
+        self._reset()
+        if isinstance(self.iterator, iterators.Linear):
+            return self.infer_iterator(X)
+        elif isinstance(self.iterator, iterators.SortedPadded):
+            return self.infer_idxs(X)
+        else:
+            raise NotImplementedError
+
+    def predict(self, X):
+        if isinstance(self.iterator, iterators.Linear):
+            return self.predict_iterator(X)
+        elif isinstance(self.iterator, iterators.SortedPadded):
+            return self.predict_idxs(X)
+        else:
+            raise NotImplementedError
+
+    def predict_iterator(self, X):
         preds = []
         for xmb in self.iterator.iterX(X):
             pred = self._predict(xmb)
             preds.append(pred)
-        preds = np.vstack(preds)
-        if argmax:
-            preds = np.argmax(preds, axis=1)
-        return preds
+        return np.vstack(preds)
 
-    def predict_proba(self, X):
-        return self.predict(X, argmax=False)
+    def predict_idxs(self, X):
+        preds = []
+        idxs = []
+        for xmb, idxmb in self.iterator.iterX(X):
+            pred = self._predict(xmb)
+            preds.append(pred)
+            idxs.extend(idxmb)
+        return np.vstack(preds)[np.argsort(idxs)]
 
 class VariationalNetwork(object):
 

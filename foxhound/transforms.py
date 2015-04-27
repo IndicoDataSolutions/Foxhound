@@ -5,6 +5,11 @@ from collections import Counter
 
 from utils import numpy_array       
 
+def FlatToImg(X, w, h, c):
+	if not numpy_array(X):
+		X = np.asarray(X)	
+	return X.reshape(-1, w, h, c)	
+
 def ImgToConv(X):
     if not numpy_array(X):
         X = np.asarray(X)
@@ -27,6 +32,32 @@ def Fliplr(X):
             x = np.fliplr(x)
         Xt.append(x)
     return Xt
+
+def Reflect(X):
+	Xt = []
+	for x in X:
+		if random.random() > 0.5:
+			x = np.flipud(x)
+		if random.random() > 0.5:
+			x = np.fliplr(x)
+		Xt.append(x)
+	return Xt
+
+def FlipVertical(X):
+	Xt = []
+	for x in X:
+		if random.random() > 0.5:
+			x = np.flipud(x)
+		Xt.append(x)
+	return Xt
+
+def FlipHorizontal(X):
+	Xt = []
+	for x in X:
+		if random.random() > 0.5:
+			x = np.fliplr(x)
+		Xt.append(x)
+	return Xt
 
 def Rot90(X):
     Xt = []
