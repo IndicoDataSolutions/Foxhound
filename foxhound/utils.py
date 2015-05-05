@@ -1,19 +1,28 @@
 import inspect
 import types
 import numpy as np
+from sklearn import utils as skutils
+
+from rng import np_rng
 
 def numpy_array(X):
     return type(X).__module__ == np.__name__
 
 def iter_data(*data, **kwargs):
     size = kwargs.get('size', 128)
-    batches = len(data[0]) / size
-    if len(data[0]) % size != 0:
+    try:
+        n = len(data[0])
+    except:
+        n = data[0].shape[0]
+    batches = n / size
+    if n % size != 0:
         batches += 1
 
     for b in range(batches):
         start = b * size
         end = (b + 1) * size
+        if end > n:
+            end = n
         if len(data) == 1:
             yield data[0][start:end]
         else:
@@ -21,19 +30,18 @@ def iter_data(*data, **kwargs):
 
 def iter_indices(*data, **kwargs):
     size = kwargs.get('size', 128)
-    batches = len(data[0]) / size
-    if len(data[0]) % size != 0:
+    try:
+        n = len(data[0])
+    except:
+        n = data[0].shape[0]
+    batches = n / size
+    if n % size != 0:
         batches += 1
     for b in range(batches):
         yield b
 
-def shuffle(*data, **kwargs):
-    np_rng = kwargs.get('np_rng', np.random.RandomState(42))
-    idxs = np_rng.permutation(np.arange(len(data[0])))
-    if len(data) == 1:
-        return [data[0][idx] for idx in idxs]
-    else:
-        return [[d[idx] for idx in idxs] for d in data]
+def shuffle(*arrays, **options):
+    return skutils.shuffle(*arrays, random_state=np_rng)
 
 def case_insensitive_import(module, name):
     mapping = dict((k.lower(), k) for k in dir(module))
@@ -51,5 +59,7 @@ def instantiate(module, obj):
             return obj()
     elif isinstance(obj, classes_of(module)):
     	return obj
+    elif inspect.isfunction(obj):
+    	return obj
     else:
-    	raise TypeError
+        raise TypeError

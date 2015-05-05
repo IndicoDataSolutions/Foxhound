@@ -22,11 +22,26 @@ def lbf(l,b):
 def list_index(l, idxs):
     return [l[idx] for idx in idxs]
 
+punctuation = set(string.punctuation)
+punctuation.add('\n')
+punctuation.add('\t')
+punctuation.add('')
+
+def merge_tokens(tokens):
+    merged = [tokens[0]]
+    for t in tokens[1:]:
+        m = merged[-1]
+        if t in punctuation and m[-1] == t:
+            merged[-1] += t
+            m += t
+        elif m.count(m[0]) == len(m) and len(m) > 1 and m[0] in punctuation:
+            merged[-1] = m[:4]
+            merged.append(t)
+        else:
+            merged.append(t)
+    return merged
+
 def tokenize(text):
-    punctuation = set(string.punctuation)
-    punctuation.add('\n')
-    punctuation.add('\t')
-    punctuation.add('')
     tokenized = []
     w = ''
     for t in text:
@@ -42,6 +57,7 @@ def tokenize(text):
     if w != '':
         tokenized.append(w)
     tokenized = [token for token in tokenized if token]
+    tokenized = merge_tokens(tokenized)
     return tokenized
 
 def token_encoder(texts, max_features=9997, min_df=10):
@@ -155,3 +171,24 @@ class Tokenizer(object):
         else:
             joiner = ' '
         return [joiner.join([self.decoder[token] for token in code]) for code in codes]
+
+class LenFilter(object):
+
+    def __init__(self, max_len=1000, min_max_len=100, percentile=99):
+        self.max_len = max_len
+        self.percentile = percentile
+        self.min_max_len = min_max_len
+
+    def filter(self, *data):
+        lens = [len(seq) for seq in data[0]]
+        if self.percentile > 0:
+            max_len = np.percentile(lens, self.percentile)
+            max_len = np.clip(max_len, self.min_max_len, self.max_len)
+        else:
+            max_len = self.max_len
+        valid_idxs = [i for i, l in enumerate(lens) if l <= max_len]
+        if len(data) == 1:
+            return list_index(data[0], valid_idxs)
+        else:
+            return tuple([list_index(d, valid_idxs) for d in data])
+

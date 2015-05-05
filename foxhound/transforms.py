@@ -1,9 +1,27 @@
 import numpy as np
 import pandas as pd
-import random
 from collections import Counter
 
-from utils import numpy_array       
+from utils import numpy_array    
+from rng import np_rng, py_rng   
+
+def one_hot(X, n=None, negative_class=0.):
+    X = np.asarray(X).flatten()
+    if n is None:
+        n = np.max(X) + 1
+    Xoh = np.ones((len(X), n)) * negative_class
+    Xoh[np.arange(len(X)), X] = 1.
+    return Xoh
+
+def SeqPadded(seqs):
+    lens = map(len, seqs)
+    max_len = max(lens)
+    seqs_padded = []
+    for seq, seq_len in zip(seqs, lens):
+        n_pad = max_len - seq_len 
+        seq = [0] * n_pad + seq
+        seqs_padded.append(seq)
+    return np.asarray(seqs_padded).transpose(1, 0)
 
 def FlatToImg(X, w, h, c):
 	if not numpy_array(X):
@@ -28,7 +46,7 @@ def ZeroOneScale(X):
 def Fliplr(X):
     Xt = []
     for x in X:
-        if random.random() > 0.5:
+        if py_rng.random() > 0.5:
             x = np.fliplr(x)
         Xt.append(x)
     return Xt
@@ -36,9 +54,9 @@ def Fliplr(X):
 def Reflect(X):
 	Xt = []
 	for x in X:
-		if random.random() > 0.5:
+		if py_rng.random() > 0.5:
 			x = np.flipud(x)
-		if random.random() > 0.5:
+		if py_rng.random() > 0.5:
 			x = np.fliplr(x)
 		Xt.append(x)
 	return Xt
@@ -46,7 +64,7 @@ def Reflect(X):
 def FlipVertical(X):
 	Xt = []
 	for x in X:
-		if random.random() > 0.5:
+		if py_rng.random() > 0.5:
 			x = np.flipud(x)
 		Xt.append(x)
 	return Xt
@@ -54,7 +72,7 @@ def FlipVertical(X):
 def FlipHorizontal(X):
 	Xt = []
 	for x in X:
-		if random.random() > 0.5:
+		if py_rng.random() > 0.5:
 			x = np.fliplr(x)
 		Xt.append(x)
 	return Xt
@@ -62,7 +80,7 @@ def FlipHorizontal(X):
 def Rot90(X):
     Xt = []
     for x in X:
-        x = np.rot90(x, random.randint(0, 3))
+        x = np.rot90(x, py_rng.randint(0, 3))
         Xt.append(x)
     return Xt
 
@@ -70,9 +88,9 @@ def ColorShift(X, p=1/3., scale=20):
     Xt = []
     for x in X:
         x = x.astype(np.int16)
-        x[:, :, 0] += (random.random() < p)*random.randint(-scale, scale)
-        x[:, :, 1] += (random.random() < p)*random.randint(-scale, scale)
-        x[:, :, 2] += (random.random() < p)*random.randint(-scale, scale)
+        x[:, :, 0] += (py_rng.random() < p)*py_rng.randint(-scale, scale)
+        x[:, :, 1] += (py_rng.random() < p)*py_rng.randint(-scale, scale)
+        x[:, :, 2] += (py_rng.random() < p)*py_rng.randint(-scale, scale)
         x = np.clip(x, 0, 255).astype(np.uint8)
         Xt.append(x)
     return Xt
@@ -81,9 +99,24 @@ def Patch(X, pw, ph):
     Xt = []
     for x in X: 
         w, h = x.shape[:2]
-        i = random.randint(0, w-pw)
-        j = random.randint(0, h-ph)
+        i = py_rng.randint(0, w-pw)
+        j = py_rng.randint(0, h-ph)
         Xt.append(x[i:i+pw, j:j+pw])
+    return Xt
+
+def SeqDelete(X, p_delete):
+    Xt = []
+    for x in X:
+        Xt.append([w for w in x if py_rng.random() > p_delete])
+    return Xt
+
+def SeqPatch(X, p_size):
+    Xt = []
+    for x in X:
+        l = len(x)
+        n = int(p_size*l)
+        i = py_rng.randint(0, l-n)
+        Xt.append(x[i:i+n])
     return Xt
 
 def CenterCrop(X, pw, ph):
@@ -94,3 +127,28 @@ def CenterCrop(X, pw, ph):
         j = int(round((h-ph)/2.))
         Xt.append(x[i:i+pw, j:j+pw])
     return Xt
+
+def StringToCharacterCNNRep(X, max_len, encoder):
+    nc = len(encoder)+1
+    Xt = []
+    for x in X:
+        x = [encoder.get(c, 0) for c in x]
+        x = one_hot(x, n=nc)
+        l = len(x)
+        if l != max_len:
+            x = np.concatenate([x, np.zeros((max_len-l, nc))])
+        Xt.append(x)
+    return np.asarray(Xt).reshape(len(Xt), 1, max_len, nc)
+
+def StringToCharacterCNNRNNRep(X, encoder):
+    nc = len(encoder)+1
+    Xt = []
+    max_len = max([len(x) for x in X])
+    for x in X:
+        x = [encoder.get(c, 0) for c in x]
+        x = one_hot(x, n=nc)
+        l = len(x)
+        if l != max_len:
+            x = np.concatenate([np.zeros((max_len-l, nc)), x])
+        Xt.append(x)
+    return np.asarray(Xt).reshape(len(Xt), 1, max_len, nc)

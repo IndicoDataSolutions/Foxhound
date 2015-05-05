@@ -1,8 +1,9 @@
 import theano
 import theano.tensor as T
 import numpy as np
+from theano.compat.python2x import OrderedDict
 
-from theano_utils import shared0s, floatX
+from theano_utils import shared0s, floatX, sharedX
 
 def clip_norm(g, c, n):
     if c > 0:
@@ -15,7 +16,7 @@ def clip_norms(gs, c):
 
 class Regularizer(object):
 
-    def __init__(self, l1=0., l2=0., maxnorm=0.):
+    def __init__(self, l1=0., l2=0., maxnorm=0., l2norm=False):
         self.__dict__.update(locals())
 
     def max_norm(self, p, maxnorm):
@@ -25,6 +26,9 @@ class Regularizer(object):
             p = p * (desired/ (1e-7 + norms))
         return p
 
+    def l2_norm(self, p):
+        return p/T.sqrt(T.sum(T.sqr(p), axis=0))
+
     def gradient_regularize(self, p, g):
         g += p * self.l2
         g += T.sgn(p) * self.l1
@@ -32,6 +36,8 @@ class Regularizer(object):
 
     def weight_regularize(self, p):
         p = self.max_norm(p, self.maxnorm)
+        if self.l2norm:
+            p = self.l2_norm(p)
         return p
 
 
@@ -105,6 +111,7 @@ class NAG(Update):
             updates.append((p, updated_p))
         return updates
 
+
 class RMSprop(Update):
 
     def __init__(self, lr=0.001, rho=0.9, epsilon=1e-6, *args, **kwargs):
@@ -126,59 +133,37 @@ class RMSprop(Update):
             updates.append((p, updated_p))
         return updates
 
-# class Adam(Update):
-
-#     def __init__(self, lr=0.0002, b1=0.1, b2=0.001, e=1e-8, *args, **kwargs):
-#         Update.__init__(self, *args, **kwargs)
-#         self.__dict__.update(locals())
-
-#     def __call__(self, params, cost):
-#         updates = []
-#         grads = T.grad(cost, params)
-#         grads = clip_norms(grads, self.clipnorm)
-#         i = theano.shared(floatX(0.))
-#         i_t = i + 1.
-#         fix1 = 1. - self.b1**(i_t)
-#         fix2 = 1. - self.b2**(i_t)
-#         lr_t = self.lr * (T.sqrt(fix2) / fix1)
-#         for p, g in zip(params, grads):
-#             m = theano.shared(p.get_value() * 0.)
-#             v = theano.shared(p.get_value() * 0.)
-#             m_t = (self.b1 * g) + ((1. - self.b1) * m)
-#             v_t = (self.b2 * T.sqr(g)) + ((1. - self.b2) * v)
-#             g_t = m_t / (T.sqrt(v_t) + self.e)
-#             g_t = self.regularizer.gradient_regularize(p, g_t)
-#             p_t = p - (lr_t * g_t)
-#             p_t = self.regularizer.weight_regularize(p_t)
-#             updates.append((m, m_t))
-#             updates.append((v, v_t))
-#             updates.append((p, p_t))
-#         updates.append((i, i_t))
-#         return updates
 
 class Adam(Update):
 
-    def __init__(self, lr=0.0002, b1=0.1, b2=0.001, e=1e-8, *args, **kwargs):
+    def __init__(self, lr=0.001, b1=0.9, b2=0.999, e=1e-8, l=1-1e-8, *args, **kwargs):
         Update.__init__(self, *args, **kwargs)
-        self.__dict__.update(locals())
+        self.__dict__.update(locals())  
 
     def __call__(self, params, cost):
         updates = []
         grads = T.grad(cost, params)
-        grads = clip_norms(grads, self.clipnorm)
+        grads = clip_norms(grads, self.clipnorm)  
+        t = theano.shared(floatX(1.))
+        b1_t = self.b1*self.l**(t-1)
+     
         for p, g in zip(params, grads):
+            g = self.regularizer.gradient_regularize(p, g)
             m = theano.shared(p.get_value() * 0.)
             v = theano.shared(p.get_value() * 0.)
-            m_t = (self.b1 * g) + ((1. - self.b1) * m)
-            v_t = (self.b2 * T.sqr(g)) + ((1. - self.b2) * v)
-            g_t = m_t / (T.sqrt(v_t) + self.e)
-            g_t = self.regularizer.gradient_regularize(p, g_t)
-            p_t = p - (self.lr * g_t)
+     
+            m_t = b1_t*m + (1 - b1_t)*g
+            v_t = self.b2*v + (1 - self.b2)*g**2
+            m_c = m_t / (1-self.b1**t)
+            v_c = v_t / (1-self.b2**t)
+            p_t = p - (self.lr * m_c) / (T.sqrt(v_c) + self.e)
             p_t = self.regularizer.weight_regularize(p_t)
             updates.append((m, m_t))
             updates.append((v, v_t))
-            updates.append((p, p_t))
+            updates.append((p, p_t) )
+        updates.append((t, t + 1.))
         return updates
+
 
 class Adagrad(Update):
 
@@ -200,6 +185,7 @@ class Adagrad(Update):
             p_t = self.regularizer.weight_regularize(p_t)
             updates.append((p, p_t))
         return updates  
+
 
 class Adadelta(Update):
 
@@ -226,4 +212,17 @@ class Adadelta(Update):
 
             acc_delta_new = self.rho * acc_delta + (1 - self.rho) * update ** 2
             updates.append((acc_delta,acc_delta_new))
+        return updates
+
+
+class NoUpdate(Update):
+
+    def __init__(self, lr=0.01, momentum=0.9, *args, **kwargs):
+        Update.__init__(self, *args, **kwargs)
+        self.__dict__.update(locals())
+
+    def __call__(self, params, cost):
+        updates = []
+        for p in params:
+            updates.append((p, p))
         return updates

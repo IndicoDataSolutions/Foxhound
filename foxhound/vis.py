@@ -12,7 +12,7 @@ def color_weight_vis(w):
 	rf = 0.5+rf*5.
 	gf = 0.5+gf*5.
 	bf = 0.5+bf*5.
-	img = np.clip(np.dstack((rf,gf,bf)),0,1)
+	img = np.clip(np.dstack((rf, gf, bf)), 0, 1)
 	return img
 
 def unit_scale(x, eps=1e-8):

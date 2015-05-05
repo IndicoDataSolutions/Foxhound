@@ -10,6 +10,7 @@ from theano.sandbox.cuda.dnn import dnn_conv, dnn_pool
 
 from utils import instantiate
 from theano_utils import shared0s, sharedX
+from rng import t_rng
 
 def same_pad(n):
     return int(np.floor(n / 2.))
@@ -133,7 +134,7 @@ class FilterPool2D(object):
                 fn = lambda x:T.sqrt(T.mean(x*x, axis=2) + 1e-6)
             elif fn == 'max':
                 fn = lambda x:T.max(x, axis=2)
-            elif fn == 'mean':
+            elif fn == 'mean' or fn == 'avg':
                 fn = lambda x:T.mean(x, axis=2)
             else:
                 raise NotImplementedError
@@ -266,7 +267,6 @@ class Variational(object):
         X = self.l_in.op(state=state)
         self.mu = T.dot(X, self.wmu)
         self.log_sigma = 0.5 * T.dot(X, self.wsigma) 
-        t_rng = state['t_rng'] 
         if state['sample']:
             Z = state['sample']
             # Z = t_rng.normal(self.log_sigma.shape)
@@ -287,7 +287,11 @@ class Project(object):
     def connect(self, l_in):
         self.l_in = l_in
         self.in_shape = l_in.out_shape
-        self.out_shape = [self.in_shape[0], self.dim]
+        naxes = len(self.in_shape)
+        if naxes == 3:
+            self.out_shape = self.in_shape[:-1] + [self.dim]
+        else:
+            self.out_shape = [self.in_shape[0], self.dim]
         print self.out_shape
 
     def init(self):
@@ -313,8 +317,7 @@ class Dropout(object):
 
     def op(self, state):
         X = self.l_in.op(state=state)
-        retain_prob = 1 - self.p_drop
-        t_rng = state['t_rng']   
+        retain_prob = 1 - self.p_drop  
         if state['dropout']:
             X = X / retain_prob * t_rng.binomial(X.shape, p=retain_prob, dtype=theano.config.floatX)
         return X
@@ -389,29 +392,48 @@ class BatchNormalize(object):
         self.out_shape = self.in_shape
 
     def init(self):
-        self.g = inits.Constant(c=1.)(self.out_shape[1])
-        self.b = inits.Constant(c=0.)(self.out_shape[1])
-        self.u = inits.Constant(c=0.)(self.out_shape[1])
-        self.s = inits.Constant(c=0.)(self.out_shape[1])
+        naxes = len(self.out_shape)
+        if naxes == 2 or naxes == 4:
+            dim = self.out_shape[1]
+        elif naxes == 3:
+            dim = self.out_shape[-1]
+        else:
+            raise NotImplementedError
+        self.g = inits.Constant(c=1.)(dim)
+        self.b = inits.Constant(c=0.)(dim)
+        self.u = inits.Constant(c=0.)(dim)
+        self.s = inits.Constant(c=0.)(dim)
         self.n = sharedX(0.)
         self.params = [self.g, self.b]
 
     def op(self, state):
         X = self.l_in.op(state=state)
-
-        if len(self.out_shape) == 4:
+        naxes = len(self.out_shape)
+        if naxes == 4: #CNN
             if state['bn_active']:
                 u = T.mean(X, axis=[0, 2, 3])
             else:
                 u = self.u/self.n
-            cb_u = u.dimshuffle('x', 0, 'x', 'x')
+            b_u = u.dimshuffle('x', 0, 'x', 'x')
             if state['bn_active']:
-                s = T.mean(T.sqr(X - cb_u), axis=[0, 2, 3])
+                s = T.mean(T.sqr(X - b_u), axis=[0, 2, 3])
             else:
                 s = self.s/self.n
-            X = (X - cb_u) / T.sqrt(s.dimshuffle('x', 0, 'x', 'x') + self.e)
+            X = (X - b_u) / T.sqrt(s.dimshuffle('x', 0, 'x', 'x') + self.e)
             X = self.g.dimshuffle('x', 0, 'x', 'x')*X + self.b.dimshuffle('x', 0, 'x', 'x')
-        elif len(self.out_shape) == 2:
+        elif naxes == 3: #RNN
+            if state['bn_active']:
+                u = T.mean(X, axis=[0, 1])
+            else:
+                u = self.u/self.n
+            b_u = u.dimshuffle('x', 'x', 0)
+            if state['bn_active']:
+                s = T.mean(T.sqr(X - b_u), axis=[0, 1])
+            else:
+                s = self.s/self.n       
+            X = (X - b_u) / T.sqrt(s.dimshuffle('x', 'x', 0) + self.e)
+            X = self.g.dimshuffle('x', 'x', 0)*X + self.b.dimshuffle('x', 'x', 0)     
+        elif naxes == 2: #FC
             if state['bn_active']:
                 u = T.mean(X, axis=0)
             else:
@@ -474,14 +496,21 @@ class Slice(object):
         X = self.l_in.op(state=state)
         return self.fn(X) 
 
-# class Last(object):
-#     def __init__(self):
-#         pass
+class Op(object):
 
-#     def connect(self, l_in):
-#         self.l_in = l_in
-#         self.in_shape = l_in.out_shape
-#         self.out_shape = 
+    def __init__(self, fn, shape_fn):
+        self.fn = fn
+        self.shape_fn = shape_fn
+
+    def connect(self, l_in):
+        self.l_in = l_in
+        self.in_shape = l_in.out_shape
+        self.out_shape = self.shape_fn(self.in_shape)
+        print self.out_shape
+
+    def op(self, state):
+        X = self.l_in.op(state=state)
+        return self.fn(X) 
 
 class RNN(object):
 
@@ -527,8 +556,8 @@ class RNN(object):
 
 class GRU(object):
 
-    def __init__(self, dim=256, activation='tanh', gate_activation='SteeperSigmoid', proj_init_fn='orthogonal',
-                 rec_init_fn='orthogonal', bias_init_fn='constant', update_fn='nag'):
+    def __init__(self, dim=256, activation='rectify', gate_activation='SteeperSigmoid', proj_init_fn='orthogonal',
+                 rec_init_fn='identity', bias_init_fn='constant', update_fn='nag'):
         self.dim = dim
         self.proj_init_fn = instantiate(inits, proj_init_fn)
         self.rec_init_fn = instantiate(inits, rec_init_fn)
@@ -578,3 +607,66 @@ class GRU(object):
 
     def update(self, cost):
         return self.update_fn(self.params, cost)
+
+class LSTM(object):
+
+    def __init__(self, dim=256, activation='rectify', gate_activation='SteeperSigmoid', proj_init_fn='orthogonal',
+                 rec_init_fn='identity', bias_init_fn='constant', update_fn='nag'):
+        self.dim = dim
+        self.proj_init_fn = instantiate(inits, proj_init_fn)
+        self.rec_init_fn = instantiate(inits, rec_init_fn)
+        self.bias_init_fn = instantiate(inits, bias_init_fn)
+        self.update_fn = instantiate(updates, update_fn)
+        self.activation = instantiate(activations, activation)
+        self.gate_activation = instantiate(activations, gate_activation)
+
+    def connect(self, l_in):
+        self.l_in = l_in
+        self.in_shape = l_in.out_shape
+        self.out_shape = self.in_shape[:-1] + [self.dim]
+        print self.out_shape
+
+    def init(self):
+
+        self.w_i = self.proj_init_fn((self.in_shape[-1], self.dim))
+        self.w_f = self.proj_init_fn((self.in_shape[-1], self.dim))
+        self.w_o = self.proj_init_fn((self.in_shape[-1], self.dim))
+        self.w_c = self.proj_init_fn((self.in_shape[-1], self.dim))
+
+        self.b_i = self.bias_init_fn((self.dim))
+        self.b_f = self.bias_init_fn((self.dim))
+        self.b_o = self.bias_init_fn((self.dim))
+        self.b_c = self.bias_init_fn((self.dim))
+
+        self.u_i = self.rec_init_fn((self.dim, self.dim))
+        self.u_f = self.rec_init_fn((self.dim, self.dim))
+        self.u_o = self.rec_init_fn((self.dim, self.dim))
+        self.u_c = self.rec_init_fn((self.dim, self.dim))
+
+        self.params = [self.w_i, self.w_f, self.w_o, self.w_c, 
+            self.u_i, self.u_f, self.u_o, self.u_c,  
+            self.b_i, self.b_f, self.b_o, self.b_c] 
+
+    def step(self, xi_t, xf_t, xo_t, xc_t, h_tm1, c_tm1, u_i, u_f, u_o, u_c):
+        i_t = self.gate_activation(xi_t + T.dot(h_tm1, u_i))
+        f_t = self.gate_activation(xf_t + T.dot(h_tm1, u_f))
+        c_t = f_t * c_tm1 + i_t * self.activation(xc_t + T.dot(h_tm1, u_c))
+        o_t = self.gate_activation(xo_t + T.dot(h_tm1, u_o))
+        h_t = o_t * self.activation(c_t)
+        return h_t, c_t
+
+    def op(self, state):
+        X = self.l_in.op(state=state)
+        x_i = T.dot(X, self.w_i) + self.b_i
+        x_f = T.dot(X, self.w_f) + self.b_f
+        x_o = T.dot(X, self.w_o) + self.b_o
+        x_c = T.dot(X, self.w_c) + self.b_c
+        [out, cells], _ = theano.scan(self.step, 
+            sequences=[x_i, x_f, x_o, x_c], 
+            outputs_info=[
+                T.zeros((x_i.shape[1], self.dim), dtype=theano.config.floatX), 
+                T.zeros((x_i.shape[1], self.dim), dtype=theano.config.floatX)
+            ], 
+            non_sequences=[self.u_i, self.u_f, self.u_o, self.u_c],
+        )
+        return out
