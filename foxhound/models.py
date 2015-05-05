@@ -12,6 +12,7 @@ import iterators
 import async_iterators
 from utils import instantiate
 from preprocessing import standardize_X, standardize_Y
+from theano_utils import cosine
 
 def init(model):
     print model[0].out_shape
@@ -159,3 +160,70 @@ class Network(object):
             preds.append(pred)
             idxs.extend(idxmb)
         return np.vstack(preds)[np.argsort(idxs)]
+
+class SimNetwork(object):
+
+    def __init__(self, model, iterator, verbose=2):
+
+        self.model = init(model)
+        self.iterator = iterator
+        self.verbose = verbose
+
+        y_tr = self.model[-1].op({'dropout':True, 'bn_active':True, 'infer':False})
+        y_te = self.model[-1].op({'dropout':False, 'bn_active':False, 'infer':False})
+        y_inf = self.model[-1].op({'dropout':False, 'bn_active':True, 'infer':True})
+        self.X = self.model[0].X
+
+        cos_sim = cosine(y_tr[::4], y_tr[1::4])
+        cos_diff = cosine(y_tr[2::4], y_tr[3::4])
+
+        cost = T.mean(T.maximum(0, 1 - cos_sim + cos_diff))
+
+        self.updates = collect_updates(self.model, cost)
+        self.infer_updates = collect_infer_updates(self.model)
+        self.reset_updates = collect_reset_updates(self.model)
+        self._train = theano.function([self.X], cost, updates=self.updates)
+        self._transform = theano.function([self.X], y_te)
+        self._infer = theano.function([self.X], y_inf, updates=self.infer_updates)
+        self._reset = theano.function([], updates=self.reset_updates)
+
+    def fit(self, trX, n_iter=1):
+        n = 0.
+        t = time()
+        costs = []
+        for e in range(n_iter):
+            epoch_costs = []
+            for xmb in self.iterator.train(trX):
+                c = self._train(xmb)
+                epoch_costs.append(c)
+                n += len(xmb)/4
+                if self.verbose >= 2:
+                    n_per_sec = n / (time() - t)
+                    n_left = self.iterator.batches*self.iterator.size*n_iter - n
+                    time_left = n_left/n_per_sec
+                    sys.stdout.write("\rIter %d Seen %d samples Avg cost %0.4f Examples per second %d Time left %d seconds" % (e, n, np.mean(epoch_costs[-250:]), n_per_sec, time_left))
+                    sys.stdout.flush()
+            costs.extend(epoch_costs)
+            n_per_sec = n / (time() - t)
+            n_left = self.iterator.batches*self.iterator.size*n_iter - n
+            time_left = n_left/n_per_sec
+            status = "Iter %d Seen %d samples Avg cost %0.4f Examples per second %d Time elapsed %d seconds" % (e, n, np.mean(epoch_costs[-250:]), n_per_sec, time() - t)
+            if self.verbose >= 2:
+                sys.stdout.write("\r"+status) 
+                sys.stdout.flush()
+                sys.stdout.write("\n")
+            elif self.verbose == 1:
+                print status
+        return costs
+
+    def infer(self, X):
+        self._reset()
+        for xmb in self.iterator.predict(X):
+            self._infer(xmb)
+
+    def transform(self, X):
+        Xt = []
+        for xmb in self.iterator.predict(X):
+            xt = self._transform(xmb)
+            Xt.append(xt)
+        return np.vstack(Xt)

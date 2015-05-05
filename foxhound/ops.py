@@ -21,6 +21,7 @@ class Input(object):
         self.X = T.TensorType(dtype, (False,)*(len(shape)))()
         print self.X.type
         self.out_shape = shape
+        self.dtype = dtype
 
     def op(self, state):
         return self.X

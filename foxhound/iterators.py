@@ -10,8 +10,6 @@ class Linear(object):
     """
     size is the number of examples per minibatch
     shuffle controls whether or not the order of examples is shuffled before iterating over
-    x_dtype is for casting input data
-    y_dtype is for casting target data
     """
 
     def __init__(self, size=128, shuffle=True, trXt=floatX, teXt=floatX, trYt=floatX):
@@ -25,7 +23,6 @@ class Linear(object):
 
         for xmb in iter_data(X, size=self.size):
             xmb = self.teXt(xmb)
-            xmb = self.x_dtype(xmb)
             yield xmb
 
     def iterXY(self, X, Y):
@@ -71,3 +68,23 @@ class SortedPadded(object):
                 xmb = self.trXt(xmb)
                 ymb = self.trYt(ymb)
                 yield xmb, ymb
+
+class Sampler(object):
+
+    def __init__(self, sampler, batches=128, size=128, trXt=floatX, teXt=floatX):
+            self.sampler = sampler
+            self.batches = batches
+            self.size = size
+            self.trXt = trXt
+            self.teXt = teXt
+
+    def predict(self, X):
+        for xmb in iter_data(X, size=self.size):
+            xmb = self.teXt(xmb)
+            yield xmb
+
+    def train(self, data):
+        for batch in range(self.batches):
+            xmb = self.sampler(data, size=self.size)
+            xmb = self.trXt(xmb)
+            yield xmb
