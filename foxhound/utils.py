@@ -40,8 +40,18 @@ def iter_indices(*data, **kwargs):
     for b in range(batches):
         yield b
 
+def list_shuffle(*data):
+    idxs = np_rng.permutation(np.arange(len(data[0])))
+    if len(data) == 1:
+        return [data[0][idx] for idx in idxs]
+    else:
+        return [[d[idx] for idx in idxs] for d in data]
+
 def shuffle(*arrays, **options):
-    return skutils.shuffle(*arrays, random_state=np_rng)
+    if isinstance(arrays[0][0], basestring):
+        return list_shuffle(*arrays)
+    else:
+        return skutils.shuffle(*arrays, random_state=np_rng)
 
 def case_insensitive_import(module, name):
     mapping = dict((k.lower(), k) for k in dir(module))

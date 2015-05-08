@@ -497,6 +497,22 @@ class Slice(object):
         X = self.l_in.op(state=state)
         return self.fn(X) 
 
+class L2Norm(object):
+
+    def __init__(self, e=1e-8):
+        self.e = e
+
+    def connect(self, l_in):
+        self.l_in = l_in
+        self.in_shape = l_in.out_shape
+        if len(self.in_shape) != 2:
+            raise NotImplementedError        
+        self.out_shape = self.in_shape
+
+    def op(self, state):
+        X = self.l_in.op(state=state)
+        return X/T.sqrt(T.sum(T.sqr(X), axis=0) + self.e)
+
 class Op(object):
 
     def __init__(self, fn, shape_fn):

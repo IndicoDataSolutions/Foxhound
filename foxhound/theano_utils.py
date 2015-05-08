@@ -2,11 +2,14 @@ import numpy as np
 import theano
 import theano.tensor as T
 
-def l2norm(x):
-    return T.sqrt(T.sum(T.sqr(x)+1e-8, axis=1))
+def l2norm(x, e=1e-8):
+    return T.sqrt(T.sum(T.sqr(x), axis=1)+e)
 
 def cosine(a, b):
     return T.sum(a*b, axis=1)/(l2norm(a)*l2norm(b))
+
+def euclidean(a, b, e=1e-8):
+	return T.sqrt(T.sum(T.sqr(a-b), axis=1)+e)
 
 def intX(X):
     return np.asarray(X, dtype=np.int32)

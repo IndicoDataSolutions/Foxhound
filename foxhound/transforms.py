@@ -5,7 +5,7 @@ from collections import Counter
 from utils import numpy_array    
 from rng import np_rng, py_rng   
 
-def one_hot(X, n=None, negative_class=0.):
+def OneHot(X, n=None, negative_class=0.):
     X = np.asarray(X).flatten()
     if n is None:
         n = np.max(X) + 1
