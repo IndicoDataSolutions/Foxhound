@@ -2,6 +2,12 @@ import numpy as np
 import pandas as pd
 from collections import Counter
 
+from cv2 import imread as cv2_imread
+from cv2 import resize as cv2_resize
+from cv2 import INTER_AREA, INTER_LINEAR, INTER_NEAREST
+from cv2 import cvtColor
+from cv2 import COLOR_BGR2RGB, COLOR_RGB2HSV, COLOR_HSV2RGB
+
 from utils import numpy_array    
 from rng import np_rng, py_rng   
 
@@ -22,6 +28,47 @@ def SeqPadded(seqs):
         seq = [0] * n_pad + seq
         seqs_padded.append(seq)
     return np.asarray(seqs_padded).transpose(1, 0)
+
+def SeqPaddedMask(seqs):
+    lens = map(len, seqs)
+    max_len = max(lens)
+    seqs_padded = []
+    for seq, seq_len in zip(seqs, lens):
+        n_pad = max_len - seq_len 
+        seq = [0] * n_pad + [1 for _ in range(len(seq))]
+        seqs_padded.append(seq)
+    return np.asarray(seqs_padded).transpose(1, 0)
+
+def PathToImg(X):
+    Xt = []
+    for x in X:
+        x = cv2_imread(x)
+        if len(x.shape) == 2:
+            x = np.dstack((x, x, x))
+        x = cvtColor(x, COLOR_BGR2RGB)
+        Xt.append(x)
+    return Xt
+
+def MinResize(X, size, interpolation=INTER_LINEAR):
+    Xt = []
+    for x in X:
+        w, h = map(float, x.shape[:2])
+        if w <= h:
+            x = cv2_resize(x, (int(round((h/w)*size)), int(size)), interpolation=interpolation)
+        else:
+            x = cv2_resize(x, (int(size), int(round((w/h)*size))), interpolation=interpolation)
+        Xt.append(x)
+    return Xt
+
+def CenterCrop(X, nw, nh):
+    Xt = []
+    for x in X:
+        w, h = img.shape[:2]
+        w = int(round((w - nw) / 2.))
+        h = int(round((h - nh) / 2.))
+        x = x[w:w+nw, h:h+nh]
+        Xt.append(x)
+    return Xt
 
 def FlatToImg(X, w, h, c):
 	if not numpy_array(X):
@@ -48,6 +95,13 @@ def Fliplr(X):
     for x in X:
         if py_rng.random() > 0.5:
             x = np.fliplr(x)
+        Xt.append(x)
+    return Xt
+
+def Flatten(X):
+    Xt = []
+    for x in X:
+        x = x.flatten()
         Xt.append(x)
     return Xt
 
@@ -83,6 +137,11 @@ def Rot90(X):
         x = np.rot90(x, py_rng.randint(0, 3))
         Xt.append(x)
     return Xt
+
+def Pad2D(X, shape):
+    return np.pad(X, shape, mode='constant')[shape[0]:-shape[1]]
+
+# def Translate(X, wrange, hrange):
 
 def ColorShift(X, p=1/3., scale=20):
     Xt = []

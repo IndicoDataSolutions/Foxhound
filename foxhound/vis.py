@@ -55,3 +55,16 @@ def color_grid_vis(X,show=True,save=False,transform=False):
 	if save:
 		imsave(save,img)
 	return img
+
+def color_grid_plot(X, transform=lambda x:x):
+	n = int(np.ceil(np.sqrt(len(X))))
+	fig = plt.figure(figsize=(n*2, n*2))
+	for w in range(n):
+		for h in range(n):
+			i = (w*n)+h
+			if i < len(X):
+				plt.subplot(n, n, i+1)
+				plt.imshow(transform(X[i]))
+	plt.setp(fig.get_axes(), xticks=[], yticks=[])
+	plt.tight_layout()
+	plt.show()

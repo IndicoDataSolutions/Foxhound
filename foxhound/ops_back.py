@@ -8,7 +8,7 @@ from theano.tensor.extra_ops import repeat
 from theano.tensor.signal.downsample import max_pool_2d
 from theano.sandbox.cuda.dnn import dnn_conv, dnn_pool
 
-from theano_utils import euclidean, cosine
+from theano_utils import euclidean
 from utils import instantiate
 from theano_utils import shared0s, sharedX
 from rng import t_rng
@@ -119,6 +119,7 @@ class TargetEmbedding(object):
         self.w = self.init_fn((self.in_shape[-1], self.n_targets))
         print self.w.get_value().shape
         self.params = [self.w]
+        self.params = []
 
     def op(self, state):
         X = self.l_in.op(state=state)
@@ -199,8 +200,7 @@ class CUDNNPool(object):
         if isinstance(pad, int):
             pad = (pad, pad)
         self.pad = pad
-        if mode in ['avg', 'mean']:
-            mode = 'average'
+
         self.mode = mode
 
     def connect(self, l_in):
@@ -258,8 +258,6 @@ class Conv(object):
             pad = (pad, pad) 
         elif pad == 'same':
             pad = (same_pad(shape[0]), same_pad(shape[1]))
-        elif pad == None:
-            pad = (0, 0)
         self.pad = pad
 
         if isinstance(stride, int):
@@ -283,12 +281,6 @@ class Conv(object):
     def init(self):
         self.w = self.init_fn((self.n, self.in_shape[1], self.shape[0], self.shape[1]))
         self.params = [self.w]
-        c = self.in_shape[1]
-        n = self.n
-        kw, kh = self.shape
-        w, h = self.out_shape[2:]
-        flops = c*n*kw*kh*w*h
-        print '%0.f MFLOPS' % (flops/1e6)
 
     def op(self, state):
         X = self.l_in.op(state=state)
@@ -405,68 +397,6 @@ class Project(object):
     def update(self, cost):
         return self.update_fn(self.params, cost)
 
-class Compare(object):
-
-    def __init__(self, dim=256, metric='cosine', init_fn='orthogonal', update_fn='nag'):
-        self.dim = dim
-        self.init_fn = instantiate(inits, init_fn)
-        self.update_fn = instantiate(updates, update_fn)
-        self.metric = metric
-
-    def connect(self, l_in):
-        self.l_in = l_in
-        self.in_shape = l_in.out_shape
-        naxes = len(self.in_shape)
-        if naxes == 3:
-            self.out_shape = self.in_shape[:-1] + [self.dim]
-        else:
-            self.out_shape = [self.in_shape[0], self.dim]
-        print self.out_shape
-
-    def init(self):
-        self.w = self.init_fn((self.out_shape[-1], self.in_shape[-1]))
-        self.params = [self.w]
-
-    def op(self, state):
-        X = self.l_in.op(state=state)
-        if self.metric == 'cosine':
-            d = cosine(X, self.w)
-        elif self.metric == 'euclidean':
-            d = euclidean(X, self.w)
-        else:
-            raise NotImplementedError
-        return d
-
-    def update(self, cost):
-        return self.update_fn(self.params, cost)
-
-class Pool(object):
-
-    def __init__(self, pools=2, fn=lambda x:T.mean(x, axis=2)):
-        if isinstance(fn, basestring):
-            if fn == 'rms':
-                fn = lambda x:T.sqrt(T.mean(x*x, axis=2) + 1e-6)
-            elif fn == 'max':
-                fn = lambda x:T.max(x, axis=2)
-            elif fn == 'mean' or fn == 'avg':
-                fn = lambda x:T.mean(x, axis=2)
-            else:
-                raise NotImplementedError
-        self.fn = fn
-        self.pools = pools
-
-    def connect(self, l_in):
-        self.l_in = l_in
-        self.in_shape = l_in.out_shape
-        self.out_dim = self.in_shape[-1]/self.pools
-        self.out_shape = [self.in_shape[0], self.out_dim]
-        print self.out_shape
-
-    def op(self, state):
-        X = self.l_in.op(state=state)
-        X = X.reshape((-1, self.out_dim, self.pools))
-        return self.fn(X)
-
 class Dropout(object):
 
     def __init__(self, p_drop=0.5):
@@ -482,22 +412,6 @@ class Dropout(object):
         retain_prob = 1 - self.p_drop  
         if state['dropout']:
             X = X / retain_prob * t_rng.binomial(X.shape, p=retain_prob, dtype=theano.config.floatX)
-        return X
-
-class GaussianNoise(object):
-
-    def __init__(self, scale=0.3):
-        self.scale = scale
-
-    def connect(self, l_in):
-        self.l_in = l_in
-        self.in_shape = l_in.out_shape
-        self.out_shape = self.in_shape
-
-    def op(self, state):
-        X = self.l_in.op(state=state)  
-        if state['dropout']:
-            X += t_rng.normal(X.shape, std=self.scale, dtype=theano.config.floatX)
         return X
 
 class Shift(object):
@@ -583,7 +497,6 @@ class BatchNormalize(object):
         self.s = inits.Constant(c=0.)(dim)
         self.n = sharedX(0.)
         self.params = [self.g, self.b]
-        self.other_params = [self.u, self.s, self.n]
 
     def op(self, state):
         X = self.l_in.op(state=state)

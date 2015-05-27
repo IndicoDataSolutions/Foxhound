@@ -8,7 +8,6 @@ from theano.tensor.extra_ops import repeat
 from theano.tensor.signal.downsample import max_pool_2d
 from theano.sandbox.cuda.dnn import dnn_conv, dnn_pool
 
-from theano_utils import euclidean, cosine
 from utils import instantiate
 from theano_utils import shared0s, sharedX
 from rng import t_rng
@@ -18,14 +17,18 @@ def same_pad(n):
 
 class Input(object):
 
-    def __init__(self, shape, dtype=theano.config.floatX):
+    def __init__(self, shape, mask=False, dtype=theano.config.floatX):
         self.X = T.TensorType(dtype, (False,)*(len(shape)))()
-        print self.X.type
+        if mask:
+            self.mask = T.TensorType(theano.config.floatX, (False,)*(len(shape)))()
         self.out_shape = shape
         self.dtype = dtype
 
-    def op(self, state):
-        return self.X
+    def op(self, config):
+        if self.mask:
+            return {'X':self.X, 'mask':self.mask}
+        else:
+            return {'X':self.X}
 
 class Flatten(object):
 
@@ -41,9 +44,11 @@ class Flatten(object):
             self.out_shape = self.in_shape[:self.axes-1] + [np.prod(self.in_shape[self.axes-1:])]
         print self.out_shape
 
-    def op(self, state):
-        X = self.l_in.op(state=state)
-        return T.flatten(X, outdim=self.axes)
+    def op(self, config):
+        state = self.l_in.op(config=config)
+        X = state['X']
+        state['X'] = T.flatten(X, outdim=self.axes)
+        return state
 
 class Embedding(object):
 
@@ -67,101 +72,18 @@ class Embedding(object):
         self.w = self.init_fn((self.n_embed, self.dim))
         self.params = [self.w]
 
-    def op(self, state):
-        X = self.l_in.op(state=state)
-        return self.w[X]
+    def op(self, config):
+        state = self.l_in.op(config=config)
+        X = state['X']
+        state['X'] = self.w[X]
+        if 'mask' in state:
+            mask = state['mask']
+            mask = mask.dimshuffle(0, 1, 'x')
+            state['mask'] = mask
+        return state
 
     def update(self, cost):
         return self.update_fn(self.params, cost)
-
-# class TargetEmbedding(object):
-
-#     def __init__(self, n_targets, init_fn='uniform', update_fn='nag'):
-#         self.init_fn = init_fn
-#         self.update_fn = update_fn
-#         self.n_targets = n_targets
-
-#     def connect(self, l_in):
-#         self.l_in = l_in
-#         self.in_shape = l_in.out_shape
-#         self.out_shape = [self.in_shape[0], self.n_targets]
-#         print self.out_shape
-
-#     def init(self):
-#         self.w = self.init_fn((self.n_targets, self.in_shape[-1]))
-#         print self.w.get_value().shape
-#         self.params = [self.w]
-#         self.params = []
-
-#     def op(self, state):
-#         X = self.l_in.op(state=state)
-#         tdist = T.exp(-euclidean(X, self.w))
-#         # tdist = euclidean(X, self.w)
-#         return tdist
-
-#     def update(self, cost):
-#         return self.update_fn(self.params, cost)
-
-class TargetEmbedding(object):
-
-    def __init__(self, n_targets, init_fn='uniform', update_fn='nag'):
-        self.init_fn = init_fn
-        self.update_fn = update_fn
-        self.n_targets = n_targets
-
-    def connect(self, l_in):
-        self.l_in = l_in
-        self.in_shape = l_in.out_shape
-        self.out_shape = [self.in_shape[0], self.n_targets]
-        print self.out_shape
-
-    def init(self):
-        self.w = self.init_fn((self.in_shape[-1], self.n_targets))
-        print self.w.get_value().shape
-        self.params = [self.w]
-
-    def op(self, state):
-        X = self.l_in.op(state=state)
-        # tdist = T.dot(X, self.w)
-        tdist = euclidean(X, self.w)
-        return tdist
-
-    def update(self, cost):
-        return self.update_fn(self.params, cost)
-
-# class TargetEmbedding(object):
-
-#     def __init__(self, dim, n_targets, init_fn='uniform', update_fn='nag'):
-#         self.init_fn = init_fn
-#         self.update_fn = update_fn
-#         self.dim = dim
-#         self.n_targets = n_targets
-
-#     def connect(self, l_in):
-#         self.l_in = l_in
-#         self.in_shape = l_in.out_shape
-#         self.out_shape = [self.in_shape[0], self.n_targets]
-#         print self.out_shape
-
-#     def init(self):
-#         self.wt = self.init_fn((self.in_shape[-1], self.dim))
-#         self.tw = self.init_fn((self.n_targets, self.dim))
-#         print self.wt.get_value().shape
-#         print self.tw.get_value().shape
-#         self.params = [self.wt, self.tw]
-#         # self.params = []
-
-#     def op(self, state):
-#         X = self.l_in.op(state=state)
-#         tp = T.dot(X, self.wt)
-#         print tp.ndim,
-#         tdist = euclidean(tp, self.tw)
-#         print tdist.ndim
-#         return tdist
-
-#     def update(self, cost):
-#         return self.update_fn(self.params, cost)
-
 
 class MaxPool(object):
 
@@ -181,9 +103,11 @@ class MaxPool(object):
         ]
         print self.out_shape
 
-    def op(self, state):
-        X = self.l_in.op(state=state)
-        return max_pool_2d(X, self.shape)
+    def op(self, config):
+        state = self.l_in.op(config=config)
+        X = state['X']
+        state['X'] = max_pool_2d(X, self.shape)
+        return state
 
 class CUDNNPool(object):
 
@@ -199,8 +123,7 @@ class CUDNNPool(object):
         if isinstance(pad, int):
             pad = (pad, pad)
         self.pad = pad
-        if mode in ['avg', 'mean']:
-            mode = 'average'
+
         self.mode = mode
 
     def connect(self, l_in):
@@ -214,22 +137,15 @@ class CUDNNPool(object):
         ]
         print self.out_shape
 
-    def op(self, state):
-        X = self.l_in.op(state=state)
-        return dnn_pool(X, self.shape, self.stride, self.mode, self.pad)
+    def op(self, config):
+        state = self.l_in.op(config=config)
+        X = state['X']
+        state['X'] = dnn_pool(X, self.shape, self.stride, self.mode, self.pad)
+        return state
 
 class FilterPool2D(object):
 
-    def __init__(self, fn=lambda x:T.mean(x, axis=2)):
-        if isinstance(fn, basestring):
-            if fn == 'rms':
-                fn = lambda x:T.sqrt(T.mean(x*x, axis=2) + 1e-6)
-            elif fn == 'max':
-                fn = lambda x:T.max(x, axis=2)
-            elif fn == 'mean' or fn == 'avg':
-                fn = lambda x:T.mean(x, axis=2)
-            else:
-                raise NotImplementedError
+    def __init__(self, fn='avg'):
         self.fn = fn
 
     def connect(self, l_in):
@@ -241,9 +157,33 @@ class FilterPool2D(object):
         ]
         print self.out_shape
 
-    def op(self, state):
-        X = self.l_in.op(state=state)
-        return self.fn(X.reshape((X.shape[0], X.shape[1], -1)))
+    def op(self, config):
+        state = self.l_in.op(config=config)
+        X = state['X']
+        if 'mask' in state:
+            mask = state['mask']
+            X = X.reshape((X.shape[0], X.shape[1], -1))
+            mask = mask.reshape((mask.shape[0], mask.shape[1], -1))
+            X = X * mask
+            if self.fn == 'rms':
+                X = T.sqrt(T.sum(X*X, axis=2)/T.sum(mask, axis=2) + 1e-8)
+            elif self.fn == 'avg':
+                X = T.sum(X, axis=2)/T.sum(mask, axis=2)
+            elif self.fn == 'max':
+                X = T.max(X, axis=2)
+            else:
+                raise NotImplementedError
+        else:
+            if self.fn == 'rms':
+                X = T.sqrt(T.mean(X*X, axis=2) + 1e-8)
+            elif self.fn == 'avg':
+                X = T.mean(X, axis=2)
+            elif self.fn == 'max':
+                X = T.max(X, axis=2)    
+            else:
+                raise NotImplementedError        
+        state['X'] = X
+        return state
 
 class Conv(object):
 
@@ -258,8 +198,6 @@ class Conv(object):
             pad = (pad, pad) 
         elif pad == 'same':
             pad = (same_pad(shape[0]), same_pad(shape[1]))
-        elif pad == None:
-            pad = (0, 0)
         self.pad = pad
 
         if isinstance(stride, int):
@@ -283,16 +221,12 @@ class Conv(object):
     def init(self):
         self.w = self.init_fn((self.n, self.in_shape[1], self.shape[0], self.shape[1]))
         self.params = [self.w]
-        c = self.in_shape[1]
-        n = self.n
-        kw, kh = self.shape
-        w, h = self.out_shape[2:]
-        flops = c*n*kw*kh*w*h
-        print '%0.f MFLOPS' % (flops/1e6)
 
-    def op(self, state):
-        X = self.l_in.op(state=state)
-        return dnn_conv(X, self.w, subsample=self.stride, border_mode=self.pad)
+    def op(self, config):
+        state = self.l_in.op(config=config)
+        X = state['X']
+        state['X'] = dnn_conv(X, self.w, subsample=self.stride, border_mode=self.pad)
+        return state
 
     def update(self, cost):
         return self.update_fn(self.params, cost)
@@ -334,13 +268,15 @@ class CPUConv(object):
         self.w = self.init_fn((self.n, self.in_shape[1], self.shape[0], self.shape[1]))
         self.params = [self.w]
 
-    def op(self, state):
-        """ Benanne lasange same for cpu """
-        X = self.l_in.op(state=state)
+    def op(self, config):
+        """ Benanne lasagne for cpu """
+        state = self.l_in.op(config=config)
+        X = state['X']
         out = T.nnet.conv2d(X, self.w, subsample=self.stride, border_mode='full')
         shift_x = (self.shape[0] - 1) // 2
         shift_y = (self.shape[1] - 1) // 2
-        return out[:, :, shift_x:self.out_shape[2] + shift_x, shift_y:self.out_shape[3] + shift_y]
+        state['X'] = out[:, :, shift_x:self.out_shape[2] + shift_x, shift_y:self.out_shape[3] + shift_y]
+        return state
 
     def update(self, cost):
         return self.update_fn(self.params, cost)
@@ -363,16 +299,18 @@ class Variational(object):
         self.wsigma = self.init_fn((self.in_shape[-1], self.out_shape[-1]))
         self.params = [self.wmu, self.wsigma]
 
-    def op(self, state):
-        X = self.l_in.op(state=state)
+    def op(self, config):
+        state = self.l_in.op(config=config)
+        X = state['X']
         self.mu = T.dot(X, self.wmu)
         self.log_sigma = 0.5 * T.dot(X, self.wsigma) 
-        if state['sample']:
-            Z = state['sample']
+        if config['sample']:
+            Z = config['sample']
             # Z = t_rng.normal(self.log_sigma.shape)
         else:
             Z = self.mu + T.exp(self.log_sigma) * t_rng.normal(self.log_sigma.shape)
-        return Z
+        state['X'] = Z
+        return state
 
     def cost(self):
         return -0.5 * T.sum(1 + 2*self.log_sigma - self.mu**2 - T.exp(2*self.log_sigma))
@@ -398,74 +336,14 @@ class Project(object):
         self.w = self.init_fn((self.in_shape[-1], self.out_shape[-1]))
         self.params = [self.w]
 
-    def op(self, state):
-        X = self.l_in.op(state=state)
-        return T.dot(X, self.w)
+    def op(self, config):
+        state = self.l_in.op(config=config)
+        X = state['X']
+        state['X'] = T.dot(X, self.w)
+        return state
 
     def update(self, cost):
         return self.update_fn(self.params, cost)
-
-class Compare(object):
-
-    def __init__(self, dim=256, metric='cosine', init_fn='orthogonal', update_fn='nag'):
-        self.dim = dim
-        self.init_fn = instantiate(inits, init_fn)
-        self.update_fn = instantiate(updates, update_fn)
-        self.metric = metric
-
-    def connect(self, l_in):
-        self.l_in = l_in
-        self.in_shape = l_in.out_shape
-        naxes = len(self.in_shape)
-        if naxes == 3:
-            self.out_shape = self.in_shape[:-1] + [self.dim]
-        else:
-            self.out_shape = [self.in_shape[0], self.dim]
-        print self.out_shape
-
-    def init(self):
-        self.w = self.init_fn((self.out_shape[-1], self.in_shape[-1]))
-        self.params = [self.w]
-
-    def op(self, state):
-        X = self.l_in.op(state=state)
-        if self.metric == 'cosine':
-            d = cosine(X, self.w)
-        elif self.metric == 'euclidean':
-            d = euclidean(X, self.w)
-        else:
-            raise NotImplementedError
-        return d
-
-    def update(self, cost):
-        return self.update_fn(self.params, cost)
-
-class Pool(object):
-
-    def __init__(self, pools=2, fn=lambda x:T.mean(x, axis=2)):
-        if isinstance(fn, basestring):
-            if fn == 'rms':
-                fn = lambda x:T.sqrt(T.mean(x*x, axis=2) + 1e-6)
-            elif fn == 'max':
-                fn = lambda x:T.max(x, axis=2)
-            elif fn == 'mean' or fn == 'avg':
-                fn = lambda x:T.mean(x, axis=2)
-            else:
-                raise NotImplementedError
-        self.fn = fn
-        self.pools = pools
-
-    def connect(self, l_in):
-        self.l_in = l_in
-        self.in_shape = l_in.out_shape
-        self.out_dim = self.in_shape[-1]/self.pools
-        self.out_shape = [self.in_shape[0], self.out_dim]
-        print self.out_shape
-
-    def op(self, state):
-        X = self.l_in.op(state=state)
-        X = X.reshape((-1, self.out_dim, self.pools))
-        return self.fn(X)
 
 class Dropout(object):
 
@@ -477,28 +355,14 @@ class Dropout(object):
         self.in_shape = l_in.out_shape
         self.out_shape = self.in_shape
 
-    def op(self, state):
-        X = self.l_in.op(state=state)
+    def op(self, config):
+        state = self.l_in.op(config=config)
+        X = state['X']
         retain_prob = 1 - self.p_drop  
-        if state['dropout']:
+        if config['dropout']:
             X = X / retain_prob * t_rng.binomial(X.shape, p=retain_prob, dtype=theano.config.floatX)
-        return X
-
-class GaussianNoise(object):
-
-    def __init__(self, scale=0.3):
-        self.scale = scale
-
-    def connect(self, l_in):
-        self.l_in = l_in
-        self.in_shape = l_in.out_shape
-        self.out_shape = self.in_shape
-
-    def op(self, state):
-        X = self.l_in.op(state=state)  
-        if state['dropout']:
-            X += t_rng.normal(X.shape, std=self.scale, dtype=theano.config.floatX)
-        return X
+        state['X'] = X
+        return state
 
 class Shift(object):
 
@@ -526,12 +390,15 @@ class Shift(object):
 
         self.params = [self.b]
 
-    def op(self, state):
-        X = self.l_in.op(state=state)
+    def op(self, config):
+        state = self.l_in.op(config=config)
+        X = state['X']
         if self.conv:
-            return X + self.b.dimshuffle('x', 0, 'x', 'x')
+            X = X + self.b.dimshuffle('x', 0, 'x', 'x')
         else:
-            return X + self.b  
+            X = X + self.b  
+        state['X'] = X
+        return state
 
     def update(self, cost):
         return self.update_fn(self.params, cost)
@@ -551,9 +418,11 @@ class Activation(object):
     def init(self):
         self.params = []
 
-    def op(self, state):
-        X = self.l_in.op(state=state)
-        return self.activation(X)
+    def op(self, config):
+        state = self.l_in.op(config=config)
+        X = state['X']
+        state['X'] = self.activation(X)
+        return state
 
     def update(self, cost):
         return self.update_fn(self.params, cost)
@@ -583,41 +452,41 @@ class BatchNormalize(object):
         self.s = inits.Constant(c=0.)(dim)
         self.n = sharedX(0.)
         self.params = [self.g, self.b]
-        self.other_params = [self.u, self.s, self.n]
 
-    def op(self, state):
-        X = self.l_in.op(state=state)
+    def op(self, config):
+        state = self.l_in.op(config=config)
+        X = state['X']
         naxes = len(self.out_shape)
         if naxes == 4: #CNN
-            if state['bn_active']:
+            if config['bn_active']:
                 u = T.mean(X, axis=[0, 2, 3])
             else:
                 u = self.u/self.n
             b_u = u.dimshuffle('x', 0, 'x', 'x')
-            if state['bn_active']:
+            if config['bn_active']:
                 s = T.mean(T.sqr(X - b_u), axis=[0, 2, 3])
             else:
                 s = self.s/self.n
             X = (X - b_u) / T.sqrt(s.dimshuffle('x', 0, 'x', 'x') + self.e)
             X = self.g.dimshuffle('x', 0, 'x', 'x')*X + self.b.dimshuffle('x', 0, 'x', 'x')
         elif naxes == 3: #RNN
-            if state['bn_active']:
+            if config['bn_active']:
                 u = T.mean(X, axis=[0, 1])
             else:
                 u = self.u/self.n
             b_u = u.dimshuffle('x', 'x', 0)
-            if state['bn_active']:
+            if config['bn_active']:
                 s = T.mean(T.sqr(X - b_u), axis=[0, 1])
             else:
                 s = self.s/self.n       
             X = (X - b_u) / T.sqrt(s.dimshuffle('x', 'x', 0) + self.e)
             X = self.g.dimshuffle('x', 'x', 0)*X + self.b.dimshuffle('x', 'x', 0)     
         elif naxes == 2: #FC
-            if state['bn_active']:
+            if config['bn_active']:
                 u = T.mean(X, axis=0)
             else:
                 u = self.u/self.n
-            if state['bn_active']:
+            if config['bn_active']:
                 s = T.mean(T.sqr(X - u), axis=0)
             else:
                 s = self.s/self.n
@@ -626,13 +495,14 @@ class BatchNormalize(object):
         else:
             raise NotImplementedError
 
-        if state['infer']:
+        if config['infer']:
             self.infer_update = [
                 [self.u, self.u + u],
                 [self.s, self.s + s],
                 [self.n, self.n + 1.]
             ]
-        return X
+        state['X'] = X
+        return state
 
     def update(self, cost):
         return self.update_fn(self.params, cost)
@@ -655,9 +525,11 @@ class Dimshuffle(object):
         self.out_shape = [self.in_shape[idx] for idx in self.shuffle]
         print self.out_shape
 
-    def op(self, state):
-        X = self.l_in.op(state=state)
-        return X.dimshuffle(*self.shuffle)
+    def op(self, config):
+        state = self.l_in.op(config=config)
+        X = state['X']
+        state['X'] = X.dimshuffle(*self.shuffle)
+        return state
 
 class Slice(object):
 
@@ -671,9 +543,11 @@ class Slice(object):
         self.out_shape = self.shape_fn(self.in_shape)
         print self.out_shape
 
-    def op(self, state):
-        X = self.l_in.op(state=state)
-        return self.fn(X) 
+    def op(self, config):
+        state = self.l_in.op(config=config)
+        X = state['X']
+        state['X'] = self.fn(X)
+        return state 
 
 class L2Norm(object):
 
@@ -687,9 +561,11 @@ class L2Norm(object):
             raise NotImplementedError        
         self.out_shape = self.in_shape
 
-    def op(self, state):
-        X = self.l_in.op(state=state)
-        return X/T.sqrt(T.sum(T.sqr(X), axis=0) + self.e)
+    def op(self, config):
+        state = self.l_in.op(config=config)
+        X = state['X']
+        state['X'] = X/T.sqrt(T.sum(T.sqr(X), axis=0) + self.e)
+        return state
 
 class Op(object):
 
@@ -703,9 +579,14 @@ class Op(object):
         self.out_shape = self.shape_fn(self.in_shape)
         print self.out_shape
 
-    def op(self, state):
-        X = self.l_in.op(state=state)
-        return self.fn(X) 
+    def op(self, config):
+        state = self.l_in.op(config=config)
+        X = state['X']
+        state['X'] = self.fn(X)
+        if 'mask' in state:
+            state['mask'] = self.fn(state['mask'])
+        return state 
+
 
 class RNN(object):
 
@@ -736,15 +617,17 @@ class RNN(object):
         h_t = self.activation(x_t + T.dot(h_tm1, self.u))
         return h_t
 
-    def op(self, state):
-        X = self.l_in.op(state=state)
+    def op(self, config):
+        state = self.l_in.op(config=config)
+        X = state['X']
         x = T.dot(X, self.w) + self.b
         out, _ = theano.scan(self.step,
             sequences=[x],
             # outputs_info=[repeat(self.h0, x.shape[1], axis=0)],
             outputs_info=[T.zeros((x.shape[1], self.dim), dtype=theano.config.floatX)],
         )
-        return out
+        state['X'] = out
+        return state
 
     def update(self, cost):
         return self.update_fn(self.params, cost)
@@ -789,8 +672,9 @@ class GRU(object):
         h_t = z * h_tm1 + (1 - z) * h_tilda_t
         return h_t
 
-    def op(self, state):
-        X = self.l_in.op(state=state)
+    def op(self, config):
+        state = self.l_in.op(config=config)
+        X = state['X']
         x_z = T.dot(X, self.w_z) + self.b_z
         x_r = T.dot(X, self.w_r) + self.b_r
         x_h = T.dot(X, self.w_h) + self.b_h
@@ -798,7 +682,8 @@ class GRU(object):
             sequences=[x_z, x_r, x_h], 
             outputs_info=[T.zeros((x_h.shape[1], self.dim), dtype=theano.config.floatX)], 
         )
-        return out
+        state['X'] = out
+        return state
 
     def update(self, cost):
         return self.update_fn(self.params, cost)
@@ -850,8 +735,9 @@ class LSTM(object):
         h_t = o_t * self.activation(c_t)
         return h_t, c_t
 
-    def op(self, state):
-        X = self.l_in.op(state=state)
+    def op(self, config):
+        state = self.l_in.op(config=config)
+        X = state['X']
         x_i = T.dot(X, self.w_i) + self.b_i
         x_f = T.dot(X, self.w_f) + self.b_f
         x_o = T.dot(X, self.w_o) + self.b_o
@@ -864,4 +750,5 @@ class LSTM(object):
             ], 
             non_sequences=[self.u_i, self.u_f, self.u_o, self.u_c],
         )
-        return out
+        state['X'] = out
+        return state

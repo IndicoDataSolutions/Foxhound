@@ -5,6 +5,9 @@ from sklearn import utils as skutils
 
 from rng import np_rng
 
+def flatten(l):
+    return [el for sublist in l for el in sublist]
+
 def numpy_array(X):
     return type(X).__module__ == np.__name__
 

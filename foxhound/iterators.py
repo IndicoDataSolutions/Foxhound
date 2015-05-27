@@ -35,6 +35,99 @@ class Linear(object):
             ymb = self.trYt(ymb)            
             yield xmb, ymb
 
+class GeneralizedLinear(object):
+    """
+    size is the number of examples per minibatch
+    shuffle controls whether or not the order of examples is shuffled before iterating over
+    """
+
+    def __init__(self, size=128, shuffle=True, trXt=[floatX], teXt=[floatX], trYt=[floatX]):
+        self.size = size
+        self.shuffle = shuffle
+        self.trXt = trXt
+        self.teXt = teXt
+        self.trYt = trYt
+
+    def iterX(self, X):
+
+        for xmb in iter_data(X, size=self.size):
+            xmb = self.teXt(xmb)
+            yield xmb
+
+    def iterXY(self, X, Y):
+
+        if self.shuffle:
+            X, Y = shuffle(X, Y)
+
+        for xmb, ymb in iter_data(X, Y, size=self.size):
+            xmb = self.trXt(xmb)
+            ymb = self.trYt(ymb)            
+            yield xmb, ymb
+
+class KDLinear(object):
+    """
+    size is the number of examples per minibatch
+    shuffle controls whether or not the order of examples is shuffled before iterating over
+    """
+
+    def __init__(self, size=128, shuffle=True, trXt=floatX, teXt=floatX, trYth=floatX, trYts=floatX):
+        self.size = size
+        self.shuffle = shuffle
+        self.trXt = trXt
+        self.teXt = teXt
+        self.trYth = trYth
+        self.trYts = trYts
+
+    def iterX(self, X):
+
+        for xmb in iter_data(X, size=self.size):
+            xmb = self.teXt(xmb)
+            yield xmb
+
+    def iterXY(self, X, Yh, Ys):
+
+        if self.shuffle:
+            X, Yh, Ys = shuffle(X, Yh, Ys)
+
+        for xmb, ymbh, ymbs in iter_data(X, Yh, Ys, size=self.size):
+            xmb = self.trXt(xmb)
+            ymbh = self.trYth(ymbh)    
+            ymbs = self.trYts(ymbs)          
+            yield xmb, ymbh, ymbs
+
+class MaskLinear(object):
+    """
+    size is the number of examples per minibatch
+    shuffle controls whether or not the order of examples is shuffled before iterating over
+    """
+
+    def __init__(self, tr_mask, te_mask, size=128, shuffle=True, trXt=floatX, teXt=floatX, trYt=floatX):
+        self.size = size
+        self.shuffle = shuffle
+        self.tr_mask = tr_mask
+        self.te_mask = te_mask
+        self.trXt = trXt
+        self.teXt = teXt
+        self.trYt = trYt
+
+    def iterX(self, X):
+
+        for xmb in iter_data(X, size=self.size):
+            mask = self.te_mask(xmb)
+            xmb = self.teXt(xmb)
+            yield xmb, mask
+
+    def iterXY(self, X, Y):
+
+        if self.shuffle:
+            X, Y = shuffle(X, Y)
+
+        for xmb, ymb in iter_data(X, Y, size=self.size):
+            mask = self.tr_mask(xmb)
+            xmb = self.trXt(xmb)
+            ymb = self.trYt(ymb)            
+            yield xmb, ymb, mask
+
 class SortedPadded(object):
 
     def __init__(self, size=128, shuffle=True, trXt=floatX, teXt=floatX, trYt=floatX):
@@ -88,3 +181,27 @@ class Sampler(object):
             xmb = self.sampler(data, size=self.size)
             xmb = self.trXt(xmb)
             yield xmb
+
+class MaskSampler(object):
+
+    def __init__(self, tr_mask, te_mask, sampler, batches=128, size=128, trXt=floatX, teXt=floatX):
+            self.sampler = sampler
+            self.batches = batches
+            self.size = size
+            self.tr_mask = tr_mask
+            self.te_mask = te_mask
+            self.trXt = trXt
+            self.teXt = teXt
+
+    def predict(self, X):
+        for xmb in iter_data(X, size=self.size):
+            mask = self.te_mask(xmb)
+            xmb = self.teXt(xmb)
+            yield xmb, mask
+
+    def train(self, data):
+        for batch in range(self.batches):
+            xmb = self.sampler(data, size=self.size)
+            mask = self.tr_mask(xmb)
+            xmb = self.trXt(xmb)          
+            yield xmb, mask
