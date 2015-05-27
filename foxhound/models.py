@@ -13,7 +13,6 @@ import async_iterators
 from utils import instantiate
 from preprocessing import standardize_X, standardize_Y
 from theano_utils import pair_cosine, euclidean
-from guppy import hpy
 
 def init(model):
     for i in range(1, len(model)):
