@@ -14,7 +14,7 @@ class Uniform(object):
         return sharedX(np_rng.uniform(low=-self.scale, high=self.scale, size=shape))
 
 class Normal(object):
-    def __init__(self, loc=0., scale=0.05):
+    def __init__(self, loc=0., scale=0.02):
         self.scale = scale
         self.loc = loc
 
@@ -49,6 +49,17 @@ class Identity(object):
 
     def __call__(self, shape):
         return sharedX(np.identity(shape[0]) * self.scale)
+
+class NormalIdentity(object):
+
+    def __init__(self, iscale=0.94, nscale=0.02):
+        self.iscale = iscale
+        self.nscale = nscale
+
+    def __call__(self, shape):
+        iw = np.identity(shape[0]) * self.iscale
+        nw = np_rng.normal(loc=0., scale=self.nscale, size=shape)
+        return sharedX(iw + nw)
 
 class ReluInit(object):
 

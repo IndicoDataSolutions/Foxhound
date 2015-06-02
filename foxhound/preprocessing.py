@@ -22,43 +22,26 @@ def lbf(l,b):
 def list_index(l, idxs):
     return [l[idx] for idx in idxs]
 
-punctuation = set(string.punctuation)
-punctuation.add('\n')
-punctuation.add('\t')
-punctuation.add('')
+punc = set(['.', '"', ',', '(', ')', '!', '?', ';', ':', '/', '[', ']', '~', '{', '}', '|', '#', '@', '$', '%', '^', '&', '*', '<', '>', '`', '_', '=', '+'])
 
 def merge_tokens(tokens):
     merged = [tokens[0]]
     for t in tokens[1:]:
         m = merged[-1]
-        if t in punctuation and m[-1] == t:
+        if t in punc and m[-1] == t:
             merged[-1] += t
             m += t
-        elif m.count(m[0]) == len(m) and len(m) > 1 and m[0] in punctuation:
-            merged[-1] = m[:4]
+        elif m.count(m[0]) == len(m) and len(m) > 1 and m[0] in punc:
+            merged[-1] = m[:5]
             merged.append(t)
         else:
             merged.append(t)
     return merged
 
 def tokenize(text):
-    tokenized = []
-    w = ''
-    for t in text:
-        if t in punctuation:
-            tokenized.append(w)
-            tokenized.append(t)
-            w = ''
-        elif t == ' ':
-            tokenized.append(w)
-            w = ''
-        else:
-            w += t
-    if w != '':
-        tokenized.append(w)
-    tokenized = [token for token in tokenized if token]
-    tokenized = merge_tokens(tokenized)
-    return tokenized
+    for p in punc:
+        text = text.replace(p, ' '+p+ ' ')
+    return merge_tokens([token for token in text.split(' ') if token])
 
 def token_encoder(texts, max_features=9997, min_df=10):
     df = {}
