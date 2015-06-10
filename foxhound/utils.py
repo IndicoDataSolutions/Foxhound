@@ -2,6 +2,7 @@ import inspect
 import types
 import numpy as np
 from sklearn import utils as skutils
+from scipy import sparse as sp
 
 from rng import np_rng
 
@@ -51,10 +52,10 @@ def list_shuffle(*data):
         return [[d[idx] for idx in idxs] for d in data]
 
 def shuffle(*arrays, **options):
-    if isinstance(arrays[0][0], basestring):
-        return list_shuffle(*arrays)
-    else:
+    if isinstance(arrays[0], sp.csr.csr_matrix):
         return skutils.shuffle(*arrays, random_state=np_rng)
+    else:
+        return list_shuffle(*arrays)
 
 def case_insensitive_import(module, name):
     mapping = dict((k.lower(), k) for k in dir(module))

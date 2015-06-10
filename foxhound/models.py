@@ -51,7 +51,7 @@ def collect_cost(model):
 
 class Network(object):
 
-    def __init__(self, model, acts=[-1], cost=None, verbose=2, iterator='linear'):
+    def __init__(self, model, acts=[0], cost=None, verbose=2, iterator='linear'):
 
         if cost is not None:
             self.cost = instantiate(costs, cost)
@@ -98,6 +98,7 @@ class Network(object):
         for e in range(n_iter):
             epoch_costs = []
             for xmb, ymb in self.iterator.iterXY(trX, trY):
+                # print xmb.shape, ymb.shape
                 c = self._train(xmb, ymb)
                 epoch_costs.append(c)
                 n += len(ymb)
@@ -161,7 +162,9 @@ class Network(object):
         for xmb in self.iterator.iterX(X):
             pred = self._predict(xmb)
             preds.append(pred)
-        return np.vstack(preds)
+        # return np.vstack(preds)
+        # return preds
+        return np.concatenate(preds, axis=1)
 
     def predict_idxs(self, X):
         preds = []

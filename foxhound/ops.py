@@ -292,7 +292,7 @@ class Conv(object):
 
     def op(self, state):
         X = self.l_in.op(state=state)
-        return dnn_conv(X, self.w, subsample=self.stride, border_mode=self.pad)
+        return dnn_conv(X, self.w, subsample=self.stride, border_mode=self.pad, workmem='large')
 
     def update(self, cost):
         return self.update_fn(self.params, cost)
@@ -499,6 +499,37 @@ class GaussianNoise(object):
         if state['dropout']:
             X += t_rng.normal(X.shape, std=self.scale, dtype=theano.config.floatX)
         return X
+
+class Gaussian(object):
+
+    def __init__(self, dim, init_fn='normal', update_fn='nag'):
+        self.dim = dim
+        self.init_fn = instantiate(inits, init_fn)
+        self.update_fn = instantiate(updates, update_fn)        
+
+    def connect(self, l_in):
+        self.l_in = l_in
+        self.in_shape = l_in.out_shape
+        naxes = len(self.in_shape)
+        if naxes == 3:
+            self.out_shape = self.in_shape[:-1] + [self.dim]
+        else:
+            self.out_shape = [self.in_shape[0], self.dim]
+        print self.out_shape
+
+    def init(self):
+        self.w_mu = self.init_fn((self.in_shape[-1], self.out_shape[-1]))
+        self.w_sigma = self.init_fn((self.in_shape[-1], self.out_shape[-1]))
+        self.params = [self.w_mu, self.w_sigma]
+
+    def op(self, state):
+        X = self.l_in.op(state=state)
+        mu = T.dot(X, self.w_mu)
+        log_sigma = 0.5 * T.dot(X, self.w_sigma)
+        return [mu, log_sigma]
+
+    def update(self, cost):
+        return self.update_fn(self.params, cost)
 
 class Shift(object):
 

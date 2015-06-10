@@ -25,6 +25,8 @@ def list_index(l, idxs):
 punc = set(['.', '"', ',', '(', ')', '!', '?', ';', ':', '/', '[', ']', '~', '{', '}', '|', '#', '@', '$', '%', '^', '&', '*', '<', '>', '`', '_', '=', '+'])
 
 def merge_tokens(tokens):
+    if len(tokens) == 0:
+        tokens = []
     merged = [tokens[0]]
     for t in tokens[1:]:
         m = merged[-1]
@@ -41,7 +43,10 @@ def merge_tokens(tokens):
 def tokenize(text):
     for p in punc:
         text = text.replace(p, ' '+p+ ' ')
-    return merge_tokens([token for token in text.split(' ') if token])
+    tokens = [token for token in text.split(' ') if token]
+    tokens = ['*SOT*'] + tokens
+    tokens = merge_tokens(tokens)
+    return tokens
 
 def token_encoder(texts, max_features=9997, min_df=10):
     df = {}

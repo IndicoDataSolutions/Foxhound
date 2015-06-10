@@ -452,6 +452,7 @@ class BatchNormalize(object):
         self.s = inits.Constant(c=0.)(dim)
         self.n = sharedX(0.)
         self.params = [self.g, self.b]
+        self.other_params = [self.u, self.s, self.n]
 
     def op(self, config):
         state = self.l_in.op(config=config)
