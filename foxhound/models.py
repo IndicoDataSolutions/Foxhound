@@ -13,7 +13,6 @@ import async_iterators
 from utils import instantiate
 from preprocessing import standardize_X, standardize_Y
 from theano_utils import cosine, euclidean
-from guppy import hpy
 
 def init(model):
     print model[0].out_shape
