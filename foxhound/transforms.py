@@ -5,6 +5,19 @@ from collections import Counter
 from utils import numpy_array    
 from rng import np_rng, py_rng   
 
+def LenClip(X, n):
+    Xc = []
+    for x in X:
+        words = x.split(' ')
+        lens = [len(word)+1 for word in words]
+        lens[0] -= 1
+        lens[-1] -= 1
+        lens = np.cumsum(lens).tolist()
+        words = [w for w, l in zip(words, lens) if l < n]
+        xc = ' '.join(words)
+        Xc.append(xc)
+    return Xc
+
 def OneHot(X, n=None, negative_class=0.):
     X = np.asarray(X).flatten()
     if n is None:
