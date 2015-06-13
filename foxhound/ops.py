@@ -482,6 +482,22 @@ class Dimshuffle(object):
         X = self.l_in.op(state=state)
         return X.dimshuffle(*self.shuffle)
 
+class GaussianNoise(object):
+
+    def __init__(self, scale=0.3):
+        self.scale = scale
+
+    def connect(self, l_in):
+        self.l_in = l_in
+        self.in_shape = l_in.out_shape
+        self.out_shape = self.in_shape
+
+    def op(self, state):
+        X = self.l_in.op(state=state)  
+        if state['dropout']:
+            X += t_rng.normal(X.shape, std=self.scale, dtype=theano.config.floatX)
+        return X
+
 class Slice(object):
 
     def __init__(self, fn=lambda x:x[-1], shape_fn=lambda x:x[1:]):
