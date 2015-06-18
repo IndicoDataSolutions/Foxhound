@@ -14,6 +14,19 @@ class Softmax(object):
             e_x = T.exp((x - x.max(axis=1).dimshuffle(0, 'x'))/self.t)
             return e_x / e_x.sum(axis=1).dimshuffle(0, 'x')
 
+class ConvSoftmax(object):
+
+    def __init__(self, t=1.):
+        self.t = t
+
+    def __call__(self, x):
+        if self.t == 1:
+            e_x = T.exp(x - x.max(axis=1, keepdims=True))
+            return e_x / e_x.sum(axis=1, keepdims=True)
+        else:
+            e_x = T.exp((x - x.max(axis=1, keepdims=True))/self.t)
+            return e_x / e_x.sum(axis=1, keepdims=True)
+
 class KDSoftmax(object):
 
     def __init__(self, t=3.):
