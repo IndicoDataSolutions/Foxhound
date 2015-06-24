@@ -18,11 +18,14 @@ def cosine(x, y):
 	d /= l2norm(y).dimshuffle('x', 0)
 	return d
 
-def pair_cosine(a, b):
-	return T.sum(a*b, axis=1)/(l2norm(a)*l2norm(b))
+def pair_cosine(a, b, e=1e-8):
+	return T.sum(a*b, axis=1)/(l2norm(a, e)*l2norm(b, e))
 
-def l2norm(x, e=1e-8):
-    return T.sqrt(T.sum(T.sqr(x), axis=1)+e)
+def pair_euclidean(a, b, axis=1, e=1e-8):
+    return T.sqrt(T.sum(T.sqr(a - b), axis=axis) + e)
+
+def l2norm(x, axis=1, e=1e-8):
+    return T.sqrt(T.sum(T.sqr(x), axis=axis) + e)
 
 def intX(X):
     return np.asarray(X, dtype=np.int32)
