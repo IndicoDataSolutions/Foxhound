@@ -81,7 +81,10 @@ def SeqPadded(seqs, placement="front"):
     seqs_padded = []
     for seq, seq_len in zip(seqs, lens):
         n_pad = max_len - seq_len 
-        seq = [0] * n_pad + seq if "front" else seq + [0] * n_pad
+        if placement == "front":
+            seq = [0] * n_pad + seq
+        else:
+            seq = seq + [0] * n_pad    
         seqs_padded.append(seq)
     return np.asarray(seqs_padded).transpose(1, 0)
 
