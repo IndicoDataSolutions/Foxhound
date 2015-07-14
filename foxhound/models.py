@@ -12,7 +12,7 @@ import iterators
 import async_iterators
 from utils import instantiate
 from preprocessing import standardize_X, standardize_Y
-from theano_utils import cosine, euclidean
+from theano_utils import pair_cosine, pair_euclidean
 
 def init(model):
     print model[0].out_shape
@@ -242,10 +242,14 @@ class EmbeddingNetwork(object):
         self.X = self.model[0].X
 
         anchor = y_tr[::3]
-        positive = y_tr[1::3]
-        negative = y_tr[2::3]
+        pos = y_tr[1::3]
+        neg = y_tr[2::3]
 
-        cost = T.mean(euclidean(anchor, positive) - euclidean(anchor, negative) + self.alpha)
+        dpos = pair_euclidean(anchor, pos)
+        dneg = pair_euclidean(anchor, neg)
+
+        d = dneg - dpos
+        cost = T.maximum((1. - self.alpha) - d, 0.).mean()
 
         self.updates = collect_updates(self.model, cost)
         self.infer_updates = collect_infer_updates(self.model)
@@ -295,3 +299,113 @@ class EmbeddingNetwork(object):
             xt = self._transform(xmb)
             Xt.append(xt)
         return np.vstack(Xt)
+
+class AdversarialNetwork(object):
+
+    def __init__(self, model, e, a=0.5, verbose=2, iterator='linear'):
+
+        self.verbose = verbose
+        self.model = init(model)
+        try:
+            self.iterator = instantiate(iterators, iterator)
+        except:
+            self.iterator = instantiate(async_iterators, iterator)
+
+        y_tr = self.model[-1].op({'dropout':True, 'bn_active':True, 'infer':False})
+        y_te = self.model[-1].op({'dropout':False, 'bn_active':False, 'infer':False})
+        y_inf = self.model[-1].op({'dropout':False, 'bn_active':True, 'infer':True})
+        self.X = self.model[0].X
+        self.Y = T.TensorType(theano.config.floatX, (False,)*(len(model[-1].out_shape)))()
+        
+        cost = T.nnet.categorical_crossentropy(y_tr, self.Y).mean()
+
+        X_adv = self.X + e*T.sgn(T.grad(cost, self.X))
+
+        self.model[0].X = X_adv
+        y_tr_adv = self.model[-1].op({'dropout':True, 'bn_active':True, 'infer':False})
+
+        cost_adv = a*cost + (1.-a)*T.nnet.categorical_crossentropy(y_tr_adv, self.Y).mean()
+
+        te_cost = T.nnet.categorical_crossentropy(y_te, self.Y).mean()
+
+        X_te_adv = self.X + e*T.sgn(T.grad(te_cost, self.X))
+
+        self.updates = collect_updates(self.model, cost_adv)
+        self.infer_updates = collect_infer_updates(self.model)
+        self.reset_updates = collect_reset_updates(self.model)
+        self._train = theano.function([self.X, self.Y], cost_adv, updates=self.updates)
+        self._predict = theano.function([self.X], y_te)
+        self._fast_sign = theano.function([self.X, self.Y], X_te_adv)
+        self._infer = theano.function([self.X], y_inf, updates=self.infer_updates)
+        self._reset = theano.function([], updates=self.reset_updates)
+
+    def fit(self, trX, trY, n_iter=1):
+        out_shape = self.model[-1].out_shape
+        n = 0.
+        t = time()
+        costs = []
+        for e in range(n_iter):
+            epoch_costs = []
+            for xmb, ymb in self.iterator.iterXY(trX, trY):
+                c = self._train(xmb, ymb)
+                epoch_costs.append(c)
+                n += len(ymb)
+                if self.verbose >= 2:
+                    n_per_sec = n / (time() - t)
+                    n_left = len(trY)*n_iter - n
+                    time_left = n_left/n_per_sec
+                    sys.stdout.write("\rIter %d Seen %d samples Avg cost %0.4f Examples per second %d Time left %d seconds" % (e, n, np.mean(epoch_costs[-250:]), n_per_sec, time_left))
+                    sys.stdout.flush()
+            costs.extend(epoch_costs)
+            n_per_sec = n / (time() - t)
+            n_left = len(trY)*n_iter - n
+            time_left = n_left/n_per_sec
+            status = "Iter %d Seen %d samples Avg cost %0.4f Examples per second %d Time elapsed %d seconds" % (e, n, np.mean(epoch_costs[-250:]), n_per_sec, time() - t)
+            if self.verbose >= 2:
+                sys.stdout.write("\r"+status) 
+                sys.stdout.flush()
+                sys.stdout.write("\n")
+            elif self.verbose == 1:
+                print status
+        return costs
+
+    def infer_iterator(self, X):
+        for xmb in self.iterator.iterX(X):
+            self._infer(xmb)
+
+    def infer_idxs(self, X):
+        for xmb, idxmb in self.iterator.iterX(X):
+            pred = self._infer(xmb)
+
+    def infer(self, X):
+        self._reset()
+        if isinstance(self.iterator, iterators.Linear):
+            return self.infer_iterator(X)
+        elif isinstance(self.iterator, iterators.SortedPadded):
+            return self.infer_idxs(X)
+        else:
+            raise NotImplementedError
+
+    def predict(self, X):
+        if isinstance(self.iterator, iterators.Linear):
+            return self.predict_iterator(X)
+        elif isinstance(self.iterator, iterators.SortedPadded):
+            return self.predict_idxs(X)
+        else:
+            raise NotImplementedError
+
+    def predict_iterator(self, X):
+        preds = []
+        for xmb in self.iterator.iterX(X):
+            pred = self._predict(xmb)
+            preds.append(pred)
+        return np.vstack(preds)
+
+    def predict_idxs(self, X):
+        preds = []
+        idxs = []
+        for xmb, idxmb in self.iterator.iterX(X):
+            pred = self._predict(xmb)
+            preds.append(pred)
+            idxs.extend(idxmb)
+        return np.vstack(preds)[np.argsort(idxs)]

@@ -3,7 +3,7 @@ import theano.tensor as T
 import numpy as np
 from theano.compat.python2x import OrderedDict
 
-from theano_utils import shared0s, floatX, sharedX
+from theano_utils import shared0s, floatX, sharedX, l2norm
 
 def clip_norm(g, c, n):
     if c > 0:
@@ -16,7 +16,7 @@ def clip_norms(gs, c):
 
 class Regularizer(object):
 
-    def __init__(self, l1=0., l2=0., maxnorm=0., l2norm=False):
+    def __init__(self, l1=0., l2=0., maxnorm=0., l2norm=False, frobnorm=False):
         self.__dict__.update(locals())
 
     def max_norm(self, p, maxnorm):
@@ -27,7 +27,10 @@ class Regularizer(object):
         return p
 
     def l2_norm(self, p):
-        return p/T.sqrt(T.sum(T.sqr(p), axis=0))
+        return p/l2norm(p, axis=0)
+
+    def frob_norm(self, p, nrows):
+        return (p/T.sqrt(T.sum(T.sqr(p))))*T.sqrt(nrows)
 
     def gradient_regularize(self, p, g):
         g += p * self.l2
@@ -37,7 +40,10 @@ class Regularizer(object):
     def weight_regularize(self, p):
         p = self.max_norm(p, self.maxnorm)
         if self.l2norm:
+            print 'called'
             p = self.l2_norm(p)
+        if self.frobnorm > 0:
+            p = self.frob_norm(p, self.frobnorm)
         return p
 
 
@@ -48,7 +54,6 @@ class Update(object):
 
     def __call__(self, params, grads):
         raise NotImplementedError
-
 
 class SGD(Update):
 
@@ -66,7 +71,6 @@ class SGD(Update):
             updated_p = self.regularizer.weight_regularize(updated_p)
             updates.append((p, updated_p))
         return updates
-
 
 class Momentum(Update):
 

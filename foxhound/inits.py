@@ -26,13 +26,23 @@ class Orthogonal(object):
     def __init__(self, scale=1.1):
         self.scale = scale
 
-    def __call__(self, shape):
+    def __call__(self, shape, name=None):
         flat_shape = (shape[0], np.prod(shape[1:]))
         a = np_rng.normal(0.0, 1.0, flat_shape)
         u, _, v = np.linalg.svd(a, full_matrices=False)
         q = u if u.shape == flat_shape else v # pick the one with the correct shape
         q = q.reshape(shape)
-        return sharedX(self.scale * q[:shape[0], :shape[1]])
+        return sharedX(self.scale * q[:shape[0], :shape[1]], name=name)
+
+class Frob(object):
+
+    def __init__(self):
+        pass
+
+    def __call__(self, shape, name=None):
+        r = np_rng.normal(loc=0, scale=0.01, size=shape)
+        r = r/np.sqrt(np.sum(r**2))*np.sqrt(shape[1])
+        return sharedX(r, name=name)
 
 class Constant(object):
 

@@ -37,7 +37,7 @@ class ClippedRectify(object):
 
 class LeakyRectify(object):
 
-    def __init__(self, leak=0.25):
+    def __init__(self, leak=0.2):
         self.leak = leak
 
     def __call__(self, x):

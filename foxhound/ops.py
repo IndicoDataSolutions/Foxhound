@@ -516,8 +516,9 @@ class Slice(object):
 
 class L2Norm(object):
 
-    def __init__(self, e=1e-8):
+    def __init__(self, axis=1, e=1e-8):
         self.e = e
+        self.axis = axis
 
     def connect(self, l_in):
         self.l_in = l_in
@@ -528,7 +529,7 @@ class L2Norm(object):
 
     def op(self, state):
         X = self.l_in.op(state=state)
-        return X/T.sqrt(T.sum(T.sqr(X), axis=0) + self.e)
+        return X/T.sqrt(T.sum(T.sqr(X), axis=self.axis, keepdims=True) + self.e)
 
 class Op(object):
 
