@@ -125,7 +125,7 @@ class CUDNNPool(object):
 
     def op(self, state):
         X = self.l_in.op(state=state)
-        return dnn_pool(X, self.shape, self.stride, self.mode, self.pad)
+        return dnn_pool(X, ws=self.shape, stride=self.stride, mode=self.mode, pad=self.pad)
 
 class FilterPool2D(object):
 
@@ -381,7 +381,37 @@ class Activation(object):
     def update(self, cost):
         return self.update_fn(self.params, cost)
 
-class BatchNormalize(object):
+class SPP(object):
+
+    def __init__(self, pools, mode='max'):
+        self.pools = pools
+        self.mode = mode
+
+    def connect(self, l_in):
+        self.l_in = l_in
+        self.in_shape = l_in.out_shape
+        h_in = self.in_shape[2]
+        w_in = self.in_shape[3]
+        n_pool_bins = sum([(h_in/ph)*(w_in/pw) for (ph, pw) in self.pools])
+        self.out_shape = [
+            self.in_shape[0],
+            self.in_shape[1]*n_pool_bins
+        ]
+
+    def op(self, state):
+        X = self.l_in.op(state=state)
+        bins = []
+        for pool in self.pools:
+            if pool == (1, 1):
+                pool = X
+            else:
+                pool = dnn_pool(X, ws=pool, stride=pool, mode=self.mode)
+            pool = T.flatten(pool, 2)
+            bins.append(pool)
+        X = T.concatenate(bins, axis=1)
+        return X
+
+class BatchNorm(object):
 
     def __init__(self, update_fn='nag', e=1e-8):
         self.update_fn = instantiate(updates, update_fn)
@@ -570,7 +600,8 @@ class RNN(object):
         self.b = self.bias_init_fn((self.dim))
         # self.h0 = shared0s((1, self.dim))
         # self.params = [self.w, self.u, self.b, self.h0]
-        self.params = [self.w, self.u, self.b]
+        # self.params = [self.w, self.u, self.b]
+        self.params = [self.w, self.u]
 
     def step(self, x_t, h_tm1):
         h_t = self.activation(x_t + T.dot(h_tm1, self.u))
@@ -578,7 +609,43 @@ class RNN(object):
 
     def op(self, state):
         X = self.l_in.op(state=state)
-        x = T.dot(X, self.w) + self.b
+        # x = T.dot(X, self.w) + self.b
+        x = T.dot(X, self.w)
+        out, _ = theano.scan(self.step,
+            sequences=[x],
+            # outputs_info=[repeat(self.h0, x.shape[1], axis=0)],
+            outputs_info=[T.zeros((x.shape[1], self.dim), dtype=theano.config.floatX)],
+        )
+        return out
+
+    def update(self, cost):
+        return self.update_fn(self.params, cost)
+
+class Integrator(object):
+
+    def __init__(self, dim=256, rec_init_fn='identity', proj_init_fn='orthogonal', update_fn='nag'):
+        self.dim = dim
+        self.proj_init_fn = instantiate(inits, proj_init_fn)
+        self.rec_init_fn = instantiate(inits, rec_init_fn)
+        self.update_fn = instantiate(updates, update_fn)
+
+    def connect(self, l_in):
+        self.l_in = l_in
+        self.in_shape = l_in.out_shape
+        self.out_shape = self.in_shape[:-1] + [self.dim]
+        print self.out_shape
+
+    def init(self):
+        self.x_h = self.proj_init_fn((self.in_shape[-1], self.dim))
+        self.h_h = self.rec_init_fn((self.dim))
+        self.params = [self.x_h, self.h_h]
+
+    def step(self, x_t, h_tm1):
+        return h_tm1*activations.Sigmoid()(self.h_h) + x_t
+
+    def op(self, state):
+        X = self.l_in.op(state=state)
+        x = T.dot(X, self.x_h)
         out, _ = theano.scan(self.step,
             sequences=[x],
             # outputs_info=[repeat(self.h0, x.shape[1], axis=0)],

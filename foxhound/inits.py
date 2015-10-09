@@ -10,8 +10,8 @@ class Uniform(object):
     def __init__(self, scale=0.05):
         self.scale = 0.05
 
-    def __call__(self, shape):
-        return sharedX(np_rng.uniform(low=-self.scale, high=self.scale, size=shape))
+    def __call__(self, shape, name=None):
+        return sharedX(np_rng.uniform(low=-self.scale, high=self.scale, size=shape), name=name)
 
 class Normal(object):
     def __init__(self, loc=0., scale=0.05):
@@ -27,6 +27,7 @@ class Orthogonal(object):
         self.scale = scale
 
     def __call__(self, shape, name=None):
+        print 'called orthogonal init with shape', shape
         flat_shape = (shape[0], np.prod(shape[1:]))
         a = np_rng.normal(0.0, 1.0, flat_shape)
         u, _, v = np.linalg.svd(a, full_matrices=False)
@@ -49,16 +50,42 @@ class Constant(object):
     def __init__(self, c=0.):
         self.c = c
 
-    def __call__(self, shape):
-        return sharedX(np.ones(shape) * self.c)
+    def __call__(self, shape, name=None):
+        return sharedX(np.ones(shape) * self.c, name=name)
+
+class ConvIdentity(object):
+
+    def __init__(self, scale=1.):
+        self.scale = scale
+
+    def __call__(self, shape, name=None):
+        w = np.zeros(shape)
+        ycenter = shape[2]//2
+        xcenter = shape[3]//2
+
+        if shape[0] == shape[1]:
+            o_idxs = np.arange(shape[0])
+            i_idxs = np.arange(shape[1])
+        elif shape[1] < shape[0]:
+            o_idxs = np.arange(shape[0])
+            i_idxs = np.random.permutation(np.tile(np.arange(shape[1]), shape[0]/shape[1]+1))[:shape[0]]
+        w[o_idxs, i_idxs, ycenter, xcenter] = self.scale
+        return sharedX(w, name=name)
 
 class Identity(object):
 
     def __init__(self, scale=0.25):
         self.scale = scale
 
-    def __call__(self, shape):
-        return sharedX(np.identity(shape[0]) * self.scale)
+    def __call__(self, shape, name=None):
+        if shape[0] != shape[1]:
+            w = np.zeros(shape)
+            o_idxs = np.arange(shape[0])
+            i_idxs = np.random.permutation(np.tile(np.arange(shape[1]), shape[0]/shape[1]+1))[:shape[0]]
+            w[o_idxs, i_idxs] = self.scale
+        else:
+            w = np.identity(shape[0]) * self.scale
+        return sharedX(w, name=name)
 
 class ReluInit(object):
 

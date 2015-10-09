@@ -146,7 +146,7 @@ def StringToCharacterCNNRep(X, max_len, encoder):
     Xt = []
     for x in X:
         x = [encoder.get(c, 0) for c in x]
-        x = one_hot(x, n=nc)
+        x = OneHot(x, n=nc)
         l = len(x)
         if l != max_len:
             x = np.concatenate([x, np.zeros((max_len-l, nc))])
@@ -159,7 +159,7 @@ def StringToCharacterCNNRNNRep(X, encoder):
     max_len = max([len(x) for x in X])
     for x in X:
         x = [encoder.get(c, 0) for c in x]
-        x = one_hot(x, n=nc)
+        x = OneHot(x, n=nc)
         l = len(x)
         if l != max_len:
             x = np.concatenate([np.zeros((max_len-l, nc)), x])

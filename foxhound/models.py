@@ -17,8 +17,10 @@ from theano_utils import pair_cosine, pair_euclidean
 def init(model):
     print model[0].out_shape
     for i in range(1, len(model)):
+        # print model[i]
         model[i].connect(model[i-1])
         if hasattr(model[i], 'init'):
+            # print 'about to init'
             model[i].init()
     return model
 
@@ -69,6 +71,7 @@ class Network(object):
 
         self.verbose = verbose
         self.model = init(model)
+        print 'MODEL INIT FINISHED'
         try:
             self.iterator = instantiate(iterators, iterator)
         except:
@@ -77,15 +80,18 @@ class Network(object):
         y_tr = self.model[-1].op({'dropout':True, 'bn_active':True, 'infer':False})
         y_te = self.model[-1].op({'dropout':False, 'bn_active':False, 'infer':False})
         y_inf = self.model[-1].op({'dropout':False, 'bn_active':True, 'infer':True})
+        y_mon = self.model[-1].op({'dropout':False, 'bn_active':True, 'infer':False})
         self.X = self.model[0].X
         self.Y = T.TensorType(theano.config.floatX, (False,)*(len(model[-1].out_shape)))()
         cost = self.cost(self.Y, y_tr)
+        mon_cost = self.cost(self.Y, y_mon)
 
         self.updates = collect_updates(self.model, cost)
         self.infer_updates = collect_infer_updates(self.model)
         self.reset_updates = collect_reset_updates(self.model)
         self._train = theano.function([self.X, self.Y], cost, updates=self.updates)
         self._predict = theano.function([self.X], y_te)
+        self._score = theano.function([self.X, self.Y], mon_cost)
         self._infer = theano.function([self.X], y_inf, updates=self.infer_updates)
         self._reset = theano.function([], updates=self.reset_updates)
 

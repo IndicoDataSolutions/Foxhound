@@ -28,18 +28,21 @@ punctuation.add('\t')
 punctuation.add('')
 
 def merge_tokens(tokens):
-    merged = [tokens[0]]
-    for t in tokens[1:]:
-        m = merged[-1]
-        if t in punctuation and m[-1] == t:
-            merged[-1] += t
-            m += t
-        elif m.count(m[0]) == len(m) and len(m) > 1 and m[0] in punctuation:
-            merged[-1] = m[:4]
-            merged.append(t)
-        else:
-            merged.append(t)
-    return merged
+    try:
+        merged = [tokens[0]]
+        for t in tokens[1:]:
+            m = merged[-1]
+            if t in punctuation and m[-1] == t:
+                merged[-1] += t
+                m += t
+            elif m.count(m[0]) == len(m) and len(m) > 1 and m[0] in punctuation:
+                merged[-1] = m[:4]
+                merged.append(t)
+            else:
+                merged.append(t)
+        return merged
+    except:
+        return [2]
 
 def tokenize(text):
     tokenized = []

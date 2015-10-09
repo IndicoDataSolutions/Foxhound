@@ -5,6 +5,12 @@ from theano_utils import pair_euclidean
 def CategoricalCrossEntropy(y_true, y_pred):
     return T.nnet.categorical_crossentropy(y_pred, y_true).mean()
 
+def SeqCCE(y_true, y_pred):
+    shape = y_true.shape
+    y_true = y_true.reshape((shape[0]*shape[1], shape[2]))
+    y_pred = y_pred.reshape((shape[0]*shape[1], shape[2]))
+    return CategoricalCrossEntropy(y_true, y_pred).mean()
+
 def BinaryCrossEntropy(y_true, y_pred):
     return T.nnet.binary_crossentropy(y_pred, y_true).mean()
 

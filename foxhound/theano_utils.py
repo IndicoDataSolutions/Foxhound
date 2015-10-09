@@ -28,13 +28,15 @@ def cosine(x, y):
     return d
 
 def pair_cosine(a, b, e=1e-8):
-    return T.sum(a*b, axis=1)/(l2norm(a, e=e)*l2norm(b, e=e))
+    anorm = T.sqrt(T.sum(a*a, axis=1)+e)
+    bnorm = T.sqrt(T.sum(b*b, axis=1)+e)
+    return T.sum(a*b, axis=1)/(anorm*bnorm)
 
 def pair_euclidean(a, b, axis=1, e=1e-8):
     return T.sqrt(T.sum(T.sqr(a - b), axis=axis) + e)
 
-def l2norm(x, axis=1, e=1e-8):
-    return T.sqrt(T.sum(T.sqr(x), axis=axis, keepdims=True) + e)
+def l2norm(x, axis=1, e=1e-8, keepdims=True):
+    return T.sqrt(T.sum(T.sqr(x), axis=axis, keepdims=keepdims) + e)
 
 def l1norm(x, axis=1):
     return T.sum(T.abs_(x), axis=axis)

@@ -1,6 +1,17 @@
 import theano
 import theano.tensor as T
 
+class SeqSoftmax(object):
+    def __init__(self):
+        pass
+
+    def __call__(self, x):
+        shape = x.shape
+        x = x.reshape((shape[0]*shape[1], shape[2]))
+        e_x = T.exp(x - x.max(axis=1).dimshuffle(0, 'x'))
+        s = e_x / e_x.sum(axis=1).dimshuffle(0, 'x')
+        return s.reshape(shape)
+
 class Softmax(object):
 
     def __init__(self):
