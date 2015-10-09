@@ -60,7 +60,9 @@ def tokenize(text):
     if w != '':
         tokenized.append(w)
     tokenized = [token for token in tokenized if token]
-    tokenized = merge_tokens(tokenized)
+    # Don't merge if already empty
+    if len(tokenized) > 0:
+        tokenized = merge_tokens(tokenized)
     return tokenized
 
 def token_encoder(texts, max_features=9997, min_df=10):
