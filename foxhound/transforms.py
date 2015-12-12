@@ -145,21 +145,56 @@ def StringToCharacterCNNRep(X, max_len, encoder):
     nc = len(encoder)+1
     Xt = []
     for x in X:
-        x = [encoder.get(c, 0) for c in x]
-        x = one_hot(x, n=nc)
+        x = [encoder.get(c, 2) for c in x]
+        x = OneHot(x, n=nc)
         l = len(x)
         if l != max_len:
             x = np.concatenate([x, np.zeros((max_len-l, nc))])
         Xt.append(x)
-    return np.asarray(Xt).reshape(len(Xt), 1, max_len, nc)
+    # return np.asarray(Xt).reshape(len(Xt), 1, max_len, nc)
+    return np.asarray(Xt).transpose(0, 2, 1)[:, :, :, np.newaxis]
+
+def StringToCharacterCNNIDXRep(X, max_len, encoder):
+    nc = len(encoder)+1
+    Xt = []
+    for x in X:
+        x = [encoder.get(c, 2) for c in x]
+        l = len(x)
+        if l != max_len:
+            x = np.concatenate([x, np.zeros((max_len-l))])
+        Xt.append(x)
+    # print np.asarray(Xt).shape
+    return np.asarray(Xt).transpose(1, 0)
+
+def MorphTokenize(X, encoder, max_encoder_len):
+    Xt = []
+    for n, text in enumerate(X):
+        tokens = []
+        i = 0
+        while i < len(text):
+            for l in range(max_encoder_len)[::-1]:
+                if text[i:i+l+1] in encoder:
+                    tokens.append(text[i:i+l+1])
+                    i += l+1
+                    break
+            if l == 0:
+                tokens.append(text[i])
+                i += 1
+        Xt.append(tokens)
+    return Xt        
 
 def StringToCharacterCNNRNNRep(X, encoder):
     nc = len(encoder)+1
     Xt = []
     max_len = max([len(x) for x in X])
     for x in X:
+<<<<<<< Updated upstream
         x = [encoder.get(c, 0) for c in x]
         x = one_hot(x, n=nc)
+=======
+        x = [encoder.get(c, 2) for c in x]
+        x = OneHot(x, n=nc)
+>>>>>>> Stashed changes
         l = len(x)
         if l != max_len:
             x = np.concatenate([np.zeros((max_len-l, nc)), x])

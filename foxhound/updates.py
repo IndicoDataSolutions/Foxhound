@@ -26,8 +26,8 @@ class Regularizer(object):
             p = p * (desired/ (1e-7 + norms))
         return p
 
-    def l2_norm(self, p):
-        return p/l2norm(p, axis=0)
+    def l2_norm(self, p, axis=0):
+        return p/l2norm(p, axis=axis)
 
     def frob_norm(self, p, nrows):
         return (p/T.sqrt(T.sum(T.sqr(p))))*T.sqrt(nrows)
@@ -40,8 +40,7 @@ class Regularizer(object):
     def weight_regularize(self, p):
         p = self.max_norm(p, self.maxnorm)
         if self.l2norm:
-            print 'called'
-            p = self.l2_norm(p)
+            p = self.l2_norm(p, self.l2norm)
         if self.frobnorm > 0:
             p = self.frob_norm(p, self.frobnorm)
         return p
@@ -144,9 +143,12 @@ class Adam(Update):
         Update.__init__(self, *args, **kwargs)
         self.__dict__.update(locals())  
 
-    def __call__(self, params, cost):
+    def __call__(self, params, cost, consider_constant=None):
         updates = []
-        grads = T.grad(cost, params)
+        # if self.clipnorm > 0:
+            # print 'clipping grads', self.clipnorm
+            # grads = T.grad(theano.gradient.grad_clip(cost, 0, self.clipnorm), params)
+        grads = T.grad(cost, params, consider_constant=consider_constant)
         grads = clip_norms(grads, self.clipnorm)  
         t = theano.shared(floatX(1.))
         b1_t = self.b1*self.l**(t-1)

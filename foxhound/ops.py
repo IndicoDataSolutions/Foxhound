@@ -154,6 +154,70 @@ class FilterPool2D(object):
         X = self.l_in.op(state=state)
         return self.fn(X.reshape((X.shape[0], X.shape[1], -1)))
 
+class ConvLPNorm(object):
+
+    def __init__(self, init_fn='normal', update_fn='nag'):
+        self.init_fn = instantiate(inits, init_fn)
+        self.update_fn = instantiate(updates, update_fn)
+
+    def connect(self, l_in):
+        self.l_in = l_in
+        self.in_shape = self.l_in.out_shape
+        self.out_shape = [
+            self.in_shape[0],
+            self.in_shape[1],
+        ]
+        print self.out_shape
+
+    def init(self):
+        self.lpn = self.init_fn((self.in_shape[1]))
+        # self.lpn = inits.Constant(c=-5)((self.in_shape[1]))
+        self.params = [self.lpn]
+
+    def op(self, state):
+        X = self.l_in.op(state=state)
+        lpn = 1.+T.log(1.+T.exp(self.lpn))
+        lpnb = lpn.dimshuffle('x', 0, 'x', 'x')
+        X = T.abs_(X)**lpnb
+        X = T.mean(X, axis=[2, 3])
+        X = T.pow(X, 1/lpn)
+        return X
+
+    def update(self, cost):
+        return self.update_fn(self.params, cost)
+
+class EmbeddingLPNorm(object):
+
+    def __init__(self, init_fn='normal', update_fn='nag'):
+        self.init_fn = instantiate(inits, init_fn)
+        self.update_fn = instantiate(updates, update_fn)
+
+    def connect(self, l_in):
+        self.l_in = l_in
+        self.in_shape = self.l_in.out_shape
+        self.out_shape = [
+            self.in_shape[1],
+            self.in_shape[2],
+        ]
+        print self.out_shape
+
+    def init(self):
+        self.lpn = self.init_fn((self.in_shape[2]))
+        # self.lpn = inits.Constant(c=-5)((self.in_shape[1]))
+        self.params = [self.lpn]
+
+    def op(self, state):
+        X = self.l_in.op(state=state)
+        lpn = 1.+T.log(1.+T.exp(self.lpn))
+        lpnb = lpn.dimshuffle('x', 'x', 0)
+        X = T.abs_(X)**lpnb
+        X = T.mean(X, axis=[0])
+        X = T.pow(X, 1/lpn)
+        return X
+
+    def update(self, cost):
+        return self.update_fn(self.params, cost)
+
 class Conv(object):
 
     def __init__(self, n=32, shape=(3, 3), pad='same', stride=(1, 1), init_fn='orthogonal', update_fn='nag'):
@@ -369,6 +433,11 @@ class Activation(object):
     def connect(self, l_in):
         self.l_in = l_in
         self.in_shape = l_in.out_shape
+        # if isinstance(self.activation, activations.ConvMaxout) or isinstance(self.activation, activations.ConvRMSPool):
+        #     print 'called'
+        #     self.out_shape = self.in_shape
+        #     self.out_shape[1] = self.out_shape[1]/2
+        # else:
         self.out_shape = self.in_shape
 
     def init(self):
@@ -522,9 +591,7 @@ class L2Norm(object):
 
     def connect(self, l_in):
         self.l_in = l_in
-        self.in_shape = l_in.out_shape
-        if len(self.in_shape) != 2:
-            raise NotImplementedError        
+        self.in_shape = l_in.out_shape       
         self.out_shape = self.in_shape
 
     def op(self, state):

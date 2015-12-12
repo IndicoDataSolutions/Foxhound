@@ -1,10 +1,41 @@
+import os
 import numpy as np
+from time import time
+from sklearn.externals import joblib
 
 import theano
 import theano.tensor as T
 
 from theano_utils import sharedX, floatX, intX
 from rng import np_rng
+
+class W2VEmbedding(object):
+    def __init__(self, data_dir):
+        self.data_dir = data_dir
+
+    def __call__(self, vocab, name=None):
+        t = time()
+        w2v_vocab = joblib.load(os.path.join(self.data_dir, '3m_w2v_gn_vocab.jl'))
+        w2v_embed = joblib.load(os.path.join(self.data_dir, '3m_w2v_gn.jl'))
+        mapping = {}
+        for i, w in enumerate(w2v_vocab):
+            w = w.lower()
+            if w in mapping:
+                mapping[w].append(i)
+            else:
+                mapping[w] = [i]
+        widxs = []
+        w2vidxs = []
+        for i, w in enumerate(vocab):
+            w = w.replace('`', "'")
+            if w in mapping:
+                w2vi = min(mapping[w])
+                w2vidxs.append(w2vi)
+                widxs.append(i)
+        # w = np_rng.uniform(low=-0.05, high=0.05, size=(len(vocab), w2v_embed.shape[1]))
+        w = np.zeros((len(vocab), w2v_embed.shape[1]))
+        w[widxs, :] = w2v_embed[w2vidxs, :]/2.
+        return sharedX(w, name=name)
 
 class Uniform(object):
     def __init__(self, scale=0.05):
