@@ -6,6 +6,23 @@ from utils import numpy_array
 from rng import np_rng, py_rng   
 
 def LenClip(X, n):
+    """
+    LenClip clips the length of sequences of text to a standard character length.
+
+    Parameters
+    ----------
+    X: array-like, shape (n_samples, )
+        for textRNN's, the elements of X are sequences of text (i.e. 
+        a single movie review from IMDB)
+
+    n: int
+        length at which to clip the sequence of text
+
+    Returns
+    -------
+    Xc: array-like, shape (n_samples, )
+        sequences of text, clipped at N characters
+    """
     Xc = []
     for x in X:
         words = x.split(' ')
@@ -26,13 +43,48 @@ def OneHot(X, n=None, negative_class=0.):
     Xoh[np.arange(len(X)), X] = 1.
     return Xoh
 
-def SeqPadded(seqs):
+def SeqPadded(seqs, placement="front"):
+    """
+    SeqPadded pads a group of tokenized sequences to the sequence with the maximum length.
+
+    Parameters
+    ----------
+    seqs: array-like
+        tokenized sequences, each which are probably not the same length.
+        seqs is an output of Vectorizer.transform() call.
+
+    placement: string, default "front"
+        where the padding should happen. 
+
+        "front" would return something like
+
+        >>> SeqPadded(seqs, placement="front")
+
+        [0, 0, 0, ......, 256, 15, 3, 888, 13]
+
+        where as "back" would return something like
+
+        >>> SeqPadded(seqs, placement="back")
+
+        [256, 15, 3, 888, 13, ......, 0, 0, 0]
+
+    Returns
+    -------
+    seqs_padded_T: array-like, shape (max_len, n_samples)
+        In the case of text RNN's,
+
+        - each column of this 2D array represents a sample text sequence
+        - the column will be padded with 0's (in the front or back) which the RNN reads as a PAD.
+    """
     lens = map(len, seqs)
     max_len = max(lens)
     seqs_padded = []
     for seq, seq_len in zip(seqs, lens):
         n_pad = max_len - seq_len 
-        seq = [0] * n_pad + seq
+        if placement == "front":
+            seq = [0] * n_pad + seq
+        else:
+            seq = seq + [0] * n_pad    
         seqs_padded.append(seq)
     return np.asarray(seqs_padded).transpose(1, 0)
 
