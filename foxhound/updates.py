@@ -146,7 +146,7 @@ class Adam(Update):
     def __call__(self, params, cost, consider_constant=None):
         updates = []
         # if self.clipnorm > 0:
-            # print 'clipping grads', self.clipnorm
+            # print('clipping grads', self.clipnorm)
             # grads = T.grad(theano.gradient.grad_clip(cost, 0, self.clipnorm), params)
         grads = T.grad(cost, params, consider_constant=consider_constant)
         grads = clip_norms(grads, self.clipnorm)  

@@ -163,7 +163,7 @@ def StringToCharacterCNNIDXRep(X, max_len, encoder):
         if l != max_len:
             x = np.concatenate([x, np.zeros((max_len-l))])
         Xt.append(x)
-    # print np.asarray(Xt).shape
+    # print(np.asarray(Xt).shape)
     return np.asarray(Xt).transpose(1, 0)
 
 def MorphTokenize(X, encoder, max_encoder_len):

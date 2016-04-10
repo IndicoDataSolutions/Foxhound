@@ -21,7 +21,7 @@ class Maxout(object):
         elif x.ndim == 4:
             x = T.max([x[:, n::self.n_pool, :, :] for n in range(self.n_pool)], axis=0)
         elif x.ndim == 3:
-            print 'assuming standard rnn 3tensor'
+            print('assuming standard rnn 3tensor')
             x = T.max([x[:, :, n::self.n_pool] for n in range(self.n_pool)], axis=0)
         return x
 
