@@ -1,7 +1,7 @@
 import numpy as np
 import costs
 
-from utils import numpy_array
+from foxhound.utils import numpy_array
 import string
 from collections import Counter
 

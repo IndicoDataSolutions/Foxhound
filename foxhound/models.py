@@ -5,14 +5,14 @@ from time import time
 import theano
 import theano.tensor as T
 
-import ops
-import costs
-import activations
-import iterators
-import async_iterators
-from utils import instantiate
-from preprocessing import standardize_X, standardize_Y
-from theano_utils import pair_cosine, pair_euclidean
+import foxhound.ops
+import foxhound.costs
+import foxhound.activations
+import foxhound.iterators
+import foxhound.async_iterators
+from foxhound.utils import instantiate
+from foxhound.preprocessing import standardize_X, standardize_Y
+from foxhound.theano_utils import pair_cosine, pair_euclidean
 
 def init(model):
     print(model[0].out_shape)

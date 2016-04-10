@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 from collections import Counter
 
-from utils import numpy_array    
-from rng import np_rng, py_rng   
+from foxhound.utils import numpy_array    
+from foxhound.rng import np_rng, py_rng   
 
 def LenClip(X, n):
     Xc = []

@@ -8,9 +8,9 @@ from theano.tensor.extra_ops import repeat
 from theano.tensor.signal.downsample import max_pool_2d
 from theano.sandbox.cuda.dnn import dnn_conv, dnn_pool
 
-from utils import instantiate
-from theano_utils import shared0s, sharedX
-from rng import t_rng
+from foxhound.utils import instantiate
+from foxhound.theano_utils import shared0s, sharedX
+from foxhound.rng import t_rng
 
 def same_pad(n):
     return int(np.floor(n / 2.))
