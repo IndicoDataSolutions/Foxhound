@@ -6,8 +6,8 @@ from sklearn.externals import joblib
 import theano
 import theano.tensor as T
 
-from theano_utils import sharedX, floatX, intX
-from rng import np_rng
+from foxhound.theano_utils import sharedX, floatX, intX
+from foxhound.rng import np_rng
 
 class W2VEmbedding(object):
     def __init__(self, data_dir):

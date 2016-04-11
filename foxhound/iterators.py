@@ -1,10 +1,10 @@
 import numpy as np
 import theano
 
-from transforms import SeqPadded
-from utils import shuffle, iter_data
-from theano_utils import floatX, intX
-from rng import py_rng, np_rng
+from foxhound.transforms import SeqPadded
+from foxhound.utils import shuffle, iter_data
+from foxhound.theano_utils import floatX, intX
+from foxhound.rng import py_rng, np_rng
 
 class Linear(object):
     """

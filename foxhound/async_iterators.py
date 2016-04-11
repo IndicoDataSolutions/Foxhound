@@ -1,6 +1,6 @@
 from multiprocessing import Process, Queue, Pool
-from utils import shuffle, iter_data
-from theano_utils import floatX, intX
+from foxhound.utils import shuffle, iter_data
+from foxhound.theano_utils import floatX, intX
 
 def noop(x):
     return x

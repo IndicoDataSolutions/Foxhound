@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 from collections import Counter
 
-from utils import numpy_array    
-from rng import np_rng, py_rng   
+from foxhound.utils import numpy_array    
+from foxhound.rng import np_rng, py_rng   
 
 def LenClip(X, n):
     Xc = []
@@ -163,7 +163,7 @@ def StringToCharacterCNNIDXRep(X, max_len, encoder):
         if l != max_len:
             x = np.concatenate([x, np.zeros((max_len-l))])
         Xt.append(x)
-    # print np.asarray(Xt).shape
+    # print(np.asarray(Xt).shape)
     return np.asarray(Xt).transpose(1, 0)
 
 def MorphTokenize(X, encoder, max_encoder_len):

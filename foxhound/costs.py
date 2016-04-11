@@ -1,6 +1,6 @@
 import theano
 import theano.tensor as T
-from theano_utils import pair_euclidean
+from foxhound.theano_utils import pair_euclidean
 
 def CategoricalCrossEntropy(y_true, y_pred):
     return T.nnet.categorical_crossentropy(y_pred, y_true).mean()
