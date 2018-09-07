@@ -1,9 +1,11 @@
-import numpy as np
-import costs
-
-from utils import numpy_array
 import string
 from collections import Counter
+
+import numpy as np
+
+import foxhound.costs
+from foxhound.utils import numpy_array
+
 
 def one_hot(X, n=None, negative_class=0.):
     X = np.asarray(X).flatten()
@@ -196,7 +198,7 @@ def one_hot(X, n=None, negative_class=0.):
     Xoh = np.ones((len(X), n)) * negative_class
     Xoh[np.arange(len(X)), X] = 1.
     return Xoh
-    
+
 class Tokenizer(object):
     """
     For converting lists of text into tokens used by Passage models.
@@ -274,4 +276,3 @@ class LenFilter(object):
             return list_index(data[0], valid_idxs)
         else:
             return tuple([list_index(d, valid_idxs) for d in data])
-

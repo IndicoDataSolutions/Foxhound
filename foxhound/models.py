@@ -12,7 +12,7 @@ import iterators
 import async_iterators
 from utils import instantiate
 from preprocessing import standardize_X, standardize_Y
-from theano_utils import pair_cosine, pair_euclidean
+from foxhound.theano_utils import pair_cosine, pair_euclidean
 
 def init(model):
     print model[0].out_shape
@@ -112,7 +112,7 @@ class Network(object):
             time_left = n_left/n_per_sec
             status = "Iter %d Seen %d samples Avg cost %0.4f Examples per second %d Time elapsed %d seconds" % (e, n, np.mean(epoch_costs[-250:]), n_per_sec, time() - t)
             if self.verbose >= 2:
-                sys.stdout.write("\r"+status) 
+                sys.stdout.write("\r"+status)
                 sys.stdout.flush()
                 sys.stdout.write("\n")
             elif self.verbose == 1:
@@ -208,7 +208,7 @@ class SimNetwork(object):
             time_left = n_left/n_per_sec
             status = "Iter %d Seen %d samples Avg cost %0.4f Examples per second %d Time elapsed %d seconds" % (e, n, np.mean(epoch_costs[-250:]), n_per_sec, time() - t)
             if self.verbose >= 2:
-                sys.stdout.write("\r"+status) 
+                sys.stdout.write("\r"+status)
                 sys.stdout.flush()
                 sys.stdout.write("\n")
             elif self.verbose == 1:
@@ -281,7 +281,7 @@ class EmbeddingNetwork(object):
             time_left = n_left/n_per_sec
             status = "Iter %d Seen %d samples Avg cost %0.4f Examples per second %d Time elapsed %d seconds" % (e, n, np.mean(epoch_costs[-250:]), n_per_sec, time() - t)
             if self.verbose >= 2:
-                sys.stdout.write("\r"+status) 
+                sys.stdout.write("\r"+status)
                 sys.stdout.flush()
                 sys.stdout.write("\n")
             elif self.verbose == 1:
@@ -316,7 +316,7 @@ class AdversarialNetwork(object):
         y_inf = self.model[-1].op({'dropout':False, 'bn_active':True, 'infer':True})
         self.X = self.model[0].X
         self.Y = T.TensorType(theano.config.floatX, (False,)*(len(model[-1].out_shape)))()
-        
+
         cost = T.nnet.categorical_crossentropy(y_tr, self.Y).mean()
 
         X_adv = self.X + e*T.sgn(T.grad(cost, self.X))
@@ -362,7 +362,7 @@ class AdversarialNetwork(object):
             time_left = n_left/n_per_sec
             status = "Iter %d Seen %d samples Avg cost %0.4f Examples per second %d Time elapsed %d seconds" % (e, n, np.mean(epoch_costs[-250:]), n_per_sec, time() - t)
             if self.verbose >= 2:
-                sys.stdout.write("\r"+status) 
+                sys.stdout.write("\r"+status)
                 sys.stdout.flush()
                 sys.stdout.write("\n")
             elif self.verbose == 1:

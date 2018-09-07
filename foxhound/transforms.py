@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 from collections import Counter
 
-from utils import numpy_array    
-from rng import np_rng, py_rng   
+from foxhound.utils import numpy_array
+from foxhound.rng import np_rng, py_rng
 
 def LenClip(X, n):
     Xc = []
@@ -31,15 +31,15 @@ def SeqPadded(seqs):
     max_len = max(lens)
     seqs_padded = []
     for seq, seq_len in zip(seqs, lens):
-        n_pad = max_len - seq_len 
+        n_pad = max_len - seq_len
         seq = [0] * n_pad + seq
         seqs_padded.append(seq)
     return np.asarray(seqs_padded).transpose(1, 0)
 
 def FlatToImg(X, w, h, c):
 	if not numpy_array(X):
-		X = np.asarray(X)	
-	return X.reshape(-1, w, h, c)	
+		X = np.asarray(X)
+	return X.reshape(-1, w, h, c)
 
 def ImgToConv(X):
     if not numpy_array(X):
@@ -110,7 +110,7 @@ def ColorShift(X, p=1/3., scale=20):
 
 def Patch(X, pw, ph):
     Xt = []
-    for x in X: 
+    for x in X:
         w, h = x.shape[:2]
         i = py_rng.randint(0, w-pw)
         j = py_rng.randint(0, h-ph)
@@ -134,7 +134,7 @@ def SeqPatch(X, p_size):
 
 def CenterCrop(X, pw, ph):
     Xt = []
-    for x in X: 
+    for x in X:
         w, h = x.shape[:2]
         i = int(round((w-pw)/2.))
         j = int(round((h-ph)/2.))
@@ -181,7 +181,7 @@ def MorphTokenize(X, encoder, max_encoder_len):
                 tokens.append(text[i])
                 i += 1
         Xt.append(tokens)
-    return Xt        
+    return Xt
 
 def StringToCharacterCNNRNNRep(X, encoder):
     nc = len(encoder)+1

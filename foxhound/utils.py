@@ -3,7 +3,7 @@ import types
 import numpy as np
 from sklearn import utils as skutils
 
-from rng import np_rng
+from foxhound.rng import np_rng
 
 def numpy_array(X):
     return type(X).__module__ == np.__name__
@@ -26,7 +26,7 @@ def iter_data(*data, **kwargs):
         if len(data) == 1:
             yield data[0][start:end]
         else:
-            yield tuple([d[start:end] for d in data]) 
+            yield tuple([d[start:end] for d in data])
 
 def iter_indices(*data, **kwargs):
     size = kwargs.get('size', 128)

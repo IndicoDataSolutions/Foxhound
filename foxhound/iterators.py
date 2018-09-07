@@ -1,10 +1,10 @@
 import numpy as np
 import theano
 
-from transforms import SeqPadded
-from utils import shuffle, iter_data
-from theano_utils import floatX, intX
-from rng import py_rng, np_rng
+from foxhound.transforms import SeqPadded
+from foxhound.utils import shuffle, iter_data
+from foxhound.theano_utils import floatX, intX
+from foxhound.rng import py_rng, np_rng
 
 class Linear(object):
     """
@@ -32,7 +32,7 @@ class Linear(object):
 
         for xmb, ymb in iter_data(X, Y, size=self.size):
             xmb = self.trXt(xmb)
-            ymb = self.trYt(ymb)            
+            ymb = self.trYt(ymb)
             yield xmb, ymb
 
 class SortedPadded(object):
@@ -51,10 +51,10 @@ class SortedPadded(object):
             chunk_idxs = [chunk_idxs[idx] for idx in sort]
             for xmb, idxmb in iter_data(x_chunk, chunk_idxs, size=self.size):
                 xmb = self.teXt(xmb)
-                yield xmb, idxmb   
+                yield xmb, idxmb
 
     def iterXY(self, X, Y):
-        
+
         if self.shuffle:
             X, Y = shuffle(X, Y)
 

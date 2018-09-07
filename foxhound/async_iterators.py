@@ -1,6 +1,6 @@
 from multiprocessing import Process, Queue, Pool
-from utils import shuffle, iter_data
-from theano_utils import floatX, intX
+from foxhound.utils import shuffle, iter_data
+from foxhound.theano_utils import floatX, intX
 
 def noop(x):
     return x
@@ -20,7 +20,7 @@ class Loader(object):
             xmb = pool.map(self.load_fn, xmb)
             self.batches.put(xmb)
         self.batches.put(StopIteration)
-    
+
     def get(self):
         return self.transform_fn(self.batches.get())
 
@@ -49,7 +49,7 @@ class AsyncLinear(object):
             yield xmb
 
     def iterXY(self, X, Y):
-        
+
         if self.shuffle:
             X, Y = shuffle(X, Y)
 
@@ -58,5 +58,5 @@ class AsyncLinear(object):
         self.proc.start()
 
         for ymb in iter_data(Y, size=self.size):
-            xmb = self.loader.get()             
+            xmb = self.loader.get()
             yield xmb, floatX(ymb)

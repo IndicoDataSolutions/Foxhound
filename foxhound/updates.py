@@ -3,7 +3,7 @@ import theano.tensor as T
 import numpy as np
 from theano.compat.python2x import OrderedDict
 
-from theano_utils import shared0s, floatX, sharedX, l2norm
+from foxhound.theano_utils import shared0s, floatX, sharedX, l2norm
 
 def clip_norm(g, c, n):
     if c > 0:
@@ -141,7 +141,7 @@ class Adam(Update):
 
     def __init__(self, lr=0.001, b1=0.9, b2=0.999, e=1e-8, l=1-1e-8, *args, **kwargs):
         Update.__init__(self, *args, **kwargs)
-        self.__dict__.update(locals())  
+        self.__dict__.update(locals())
 
     def __call__(self, params, cost, consider_constant=None):
         updates = []
@@ -149,15 +149,15 @@ class Adam(Update):
             # print 'clipping grads', self.clipnorm
             # grads = T.grad(theano.gradient.grad_clip(cost, 0, self.clipnorm), params)
         grads = T.grad(cost, params, consider_constant=consider_constant)
-        grads = clip_norms(grads, self.clipnorm)  
+        grads = clip_norms(grads, self.clipnorm)
         t = theano.shared(floatX(1.))
         b1_t = self.b1*self.l**(t-1)
-     
+
         for p, g in zip(params, grads):
             g = self.regularizer.gradient_regularize(p, g)
             m = theano.shared(p.get_value() * 0.)
             v = theano.shared(p.get_value() * 0.)
-     
+
             m_t = b1_t*m + (1 - b1_t)*g
             v_t = self.b2*v + (1 - self.b2)*g**2
             m_c = m_t / (1-self.b1**t)
@@ -190,7 +190,7 @@ class Adagrad(Update):
             p_t = p - (self.lr / T.sqrt(acc_t + self.epsilon)) * g
             p_t = self.regularizer.weight_regularize(p_t)
             updates.append((p, p_t))
-        return updates  
+        return updates
 
 
 class Adadelta(Update):
