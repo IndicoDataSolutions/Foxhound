@@ -50,7 +50,7 @@ def list_shuffle(*data):
         return [[d[idx] for idx in idxs] for d in data]
 
 def shuffle(*arrays, **options):
-    if isinstance(arrays[0][0], basestring):
+    if isinstance(arrays[0][0], str):
         return list_shuffle(*arrays)
     else:
         return skutils.shuffle(*arrays, random_state=np_rng)
@@ -63,7 +63,7 @@ def classes_of(module):
 	return tuple(x[1] for x in inspect.getmembers(module, inspect.isclass))
 
 def instantiate(module, obj):
-    if isinstance(obj, basestring):
+    if isinstance(obj, str):
         obj = case_insensitive_import(module, obj)
         if isinstance(obj, types.FunctionType):
             return obj

@@ -11,7 +11,7 @@ import foxhound.updates as updates
 
 from theano.gpuarray.dnn import dnn_conv, dnn_pool
 from theano.tensor.extra_ops import repeat
-from theano.tensor.signal.downsample import max_pool_2d
+from theano.tensor.signal import pool
 
 
 def same_pad(n):
@@ -91,7 +91,7 @@ class MaxPool(object):
 
     def op(self, state):
         X = self.l_in.op(state=state)
-        return max_pool_2d(X, self.shape)
+        return pool.pool_2d(X, self.shape)
 
 class CUDNNPool(object):
 
@@ -127,7 +127,7 @@ class CUDNNPool(object):
 class FilterPool2D(object):
 
     def __init__(self, fn=lambda x:T.mean(x, axis=2)):
-        if isinstance(fn, basestring):
+        if isinstance(fn, str):
             if fn == 'rms':
                 fn = lambda x:T.sqrt(T.mean(x*x, axis=2) + 1e-6)
             elif fn == 'max':

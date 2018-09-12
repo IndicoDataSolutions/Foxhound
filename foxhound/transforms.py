@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 from collections import Counter
 
 from foxhound.utils import numpy_array
@@ -186,13 +185,8 @@ def StringToCharacterCNNRNNRep(X, encoder):
     Xt = []
     max_len = max([len(x) for x in X])
     for x in X:
-<<<<<<< Updated upstream
-        x = [encoder.get(c, 0) for c in x]
-        x = one_hot(x, n=nc)
-=======
         x = [encoder.get(c, 2) for c in x]
         x = OneHot(x, n=nc)
->>>>>>> Stashed changes
         l = len(x)
         if l != max_len:
             x = np.concatenate([np.zeros((max_len-l, nc)), x])
