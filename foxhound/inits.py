@@ -32,7 +32,6 @@ class W2VEmbedding(object):
                 w2vi = min(mapping[w])
                 w2vidxs.append(w2vi)
                 widxs.append(i)
-        # w = np_rng.uniform(low=-0.05, high=0.05, size=(len(vocab), w2v_embed.shape[1]))
         w = np.zeros((len(vocab), w2v_embed.shape[1]))
         w[widxs, :] = w2v_embed[w2vidxs, :]/2.
         return sharedX(w, name=name)

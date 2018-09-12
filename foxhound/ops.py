@@ -7,7 +7,7 @@ from foxhound.theano_utils import shared0s, sharedX
 from foxhound.utils import instantiate
 import foxhound.activations as activations
 import foxhound.inits as inits
-import foxhound.updates as upates
+import foxhound.updates as updates
 
 from theano.gpuarray.dnn import dnn_conv, dnn_pool
 from theano.tensor.extra_ops import repeat
@@ -166,7 +166,6 @@ class ConvLPNorm(object):
 
     def init(self):
         self.lpn = self.init_fn((self.in_shape[1]))
-        # self.lpn = inits.Constant(c=-5)((self.in_shape[1]))
         self.params = [self.lpn]
 
     def op(self, state):
@@ -197,7 +196,6 @@ class EmbeddingLPNorm(object):
 
     def init(self):
         self.lpn = self.init_fn((self.in_shape[2]))
-        # self.lpn = inits.Constant(c=-5)((self.in_shape[1]))
         self.params = [self.lpn]
 
     def op(self, state):
@@ -325,7 +323,6 @@ class Variational(object):
         self.log_sigma = 0.5 * T.dot(X, self.wsigma)
         if state['sample']:
             Z = state['sample']
-            # Z = t_rng.normal(self.log_sigma.shape)
         else:
             Z = self.mu + T.exp(self.log_sigma) * t_rng.normal(self.log_sigma.shape)
         return Z
@@ -616,8 +613,6 @@ class RNN(object):
         self.w = self.proj_init_fn((self.in_shape[-1], self.dim))
         self.u = self.rec_init_fn((self.dim, self.dim))
         self.b = self.bias_init_fn((self.dim))
-        # self.h0 = shared0s((1, self.dim))
-        # self.params = [self.w, self.u, self.b, self.h0]
         self.params = [self.w, self.u, self.b]
 
     def step(self, x_t, h_tm1):
@@ -629,7 +624,6 @@ class RNN(object):
         x = T.dot(X, self.w) + self.b
         out, _ = theano.scan(self.step,
             sequences=[x],
-            # outputs_info=[repeat(self.h0, x.shape[1], axis=0)],
             outputs_info=[T.zeros((x.shape[1], self.dim), dtype=theano.config.floatX)],
         )
         return out
