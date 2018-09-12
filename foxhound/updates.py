@@ -1,9 +1,10 @@
+import numpy as np
+
 import theano
 import theano.tensor as T
-import numpy as np
+from foxhound.theano_utils import floatX, l2norm, shared0s, sharedX
 from theano.compat.python2x import OrderedDict
 
-from foxhound.theano_utils import shared0s, floatX, sharedX, l2norm
 
 def clip_norm(g, c, n):
     if c > 0:

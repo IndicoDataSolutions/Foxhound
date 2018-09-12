@@ -14,7 +14,7 @@ def euclidean(x, y, e1=1e-3, e2=1e-3):
 
 def diag_gaussian(X, m, c):
     """theano version of function from sklearn/mixture/gmm/gmm.py"""
-    n_samples, n_dim = X.shape
+    _, n_dim = X.shape
     lpr = -0.5 * (n_dim * np.log(2 * np.pi) + T.sum(T.log(c), 1)
                   + T.sum((m ** 2) / c, 1)
                   - 2 * T.dot(X, (m / c).T)

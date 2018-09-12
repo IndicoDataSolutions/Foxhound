@@ -1,9 +1,11 @@
 import inspect
 import types
+
 import numpy as np
 from sklearn import utils as skutils
 
 from foxhound.rng import np_rng
+
 
 def numpy_array(X):
     return type(X).__module__ == np.__name__

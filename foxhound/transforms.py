@@ -27,7 +27,7 @@ def OneHot(X, n=None, negative_class=0.):
     return Xoh
 
 def SeqPadded(seqs):
-    lens = map(len, seqs)
+    lens = [len(seq) for seq in seqs]
     max_len = max(lens)
     seqs_padded = []
     for seq, seq_len in zip(seqs, lens):
