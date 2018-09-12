@@ -1,9 +1,10 @@
+import numpy as np
+from collections import OrderedDict
+
 import theano
 import theano.tensor as T
-import numpy as np
-from theano.compat.python2x import OrderedDict
+from foxhound.theano_utils import floatX, l2norm, shared0s, sharedX
 
-from foxhound.theano_utils import shared0s, floatX, sharedX, l2norm
 
 def clip_norm(g, c, n):
     if c > 0:
@@ -145,9 +146,6 @@ class Adam(Update):
 
     def __call__(self, params, cost, consider_constant=None):
         updates = []
-        # if self.clipnorm > 0:
-            # print 'clipping grads', self.clipnorm
-            # grads = T.grad(theano.gradient.grad_clip(cost, 0, self.clipnorm), params)
         grads = T.grad(cost, params, consider_constant=consider_constant)
         grads = clip_norms(grads, self.clipnorm)
         t = theano.shared(floatX(1.))

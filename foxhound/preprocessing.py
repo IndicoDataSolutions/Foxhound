@@ -43,29 +43,7 @@ def merge_tokens(tokens):
             merged.append(t)
     return merged
 
-# def tokenize(text):
-#     tokenized = []
-#     w = ''
-#     for t in text:
-#         if t in punctuation:
-#             tokenized.append(w)
-#             tokenized.append(t)
-#             w = ''
-#         elif t == ' ':
-#             tokenized.append(w)
-#             w = ''
-#         else:
-#             w += t
-#     if w != '':
-#         tokenized.append(w)
-#     tokenized = [token for token in tokenized if token]
-#     # Don't merge if already empty
-#     if len(tokenized) > 0:
-#         tokenized = merge_tokens(tokenized)
-#     return tokenized
-
 def tokenize2(text):
-    tokenized = []
     text = text.replace('\n', ' \n ')
     text = text.replace('\t', ' \t ')
     text = text.replace('.', ' . ')
@@ -94,20 +72,6 @@ def tokenize2(text):
     tokens = [token for token in tokens if token]
     return tokens
 
-# import re
-
-# chars = set(string.punctuation)
-# chars.add('\t')
-# chars.add('\n')
-# chars.remove("'")
-# chars = list(chars)
-# rep = dict(zip(chars, [' '+c+' ' for c in chars]))
-
-# # use these three lines to do the replacement
-# rep = dict((re.escape(k), v) for k, v in rep.iteritems())
-# print "|".join(rep.keys())
-# pattern = re.compile("|".join(rep.keys()))
-# # text = pattern.sub(lambda m: rep[re.escape(m.group(0))], text)
 
 punc = set(string.punctuation)
 punc.add('\t')
@@ -116,7 +80,6 @@ punc.remove("'")
 contractions = ["'s", "'t", "'re", "'ve", "'ll", "'m", "'d"]
 
 def tokenize(text):
-    tokenized = []
     for c in punc:
         text = text.replace(c, ' '+c+' ')
     for c in contractions:
@@ -126,25 +89,6 @@ def tokenize(text):
     tokens = text.split(' ')
     tokens = [token for token in tokens if token]
     return tokens
-
-# def token_encoder(texts, max_features=9997, min_df=10):
-#     df = {}
-#     for text in texts:
-#         tokens = set(text)
-#         for token in tokens:
-#             if token in df:
-#                 df[token] += 1
-#             else:
-#                 df[token] = 1
-#     k, v = df.keys(), np.asarray(df.values())
-#     valid = v >= min_df
-#     k = lbf(k, valid)
-#     v = v[valid]
-#     sort_mask = np.argsort(v)[::-1]
-#     k = list_index(k, sort_mask)[:max_features]
-#     v = v[sort_mask][:max_features]
-#     xtoi = dict(zip(k, range(3, len(k)+3)))
-#     return xtoi
 
 def token_encoder(texts, character=False, max_features=9997, min_df=10):
     df = {}

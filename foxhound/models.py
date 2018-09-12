@@ -5,17 +5,17 @@ from time import time
 import theano
 import theano.tensor as T
 
-import ops
-import costs
-import activations
-import iterators
-import async_iterators
-from utils import instantiate
-from preprocessing import standardize_X, standardize_Y
+from foxhound import ops
+from foxhound import costs
+from foxhound import activations
+from foxhound import iterators
+from foxhound import async_iterators
+from foxhound.utils import instantiate
+from foxhound.preprocessing import standardize_X, standardize_Y
 from foxhound.theano_utils import pair_cosine, pair_euclidean
 
 def init(model):
-    print model[0].out_shape
+    print(model[0].out_shape)
     for i in range(1, len(model)):
         model[i].connect(model[i-1])
         if hasattr(model[i], 'init'):
@@ -116,7 +116,7 @@ class Network(object):
                 sys.stdout.flush()
                 sys.stdout.write("\n")
             elif self.verbose == 1:
-                print status
+                print(status)
         return costs
 
     def infer_iterator(self, X):
@@ -212,7 +212,7 @@ class SimNetwork(object):
                 sys.stdout.flush()
                 sys.stdout.write("\n")
             elif self.verbose == 1:
-                print status
+                print(status)
         return costs
 
     def infer(self, X):
@@ -285,7 +285,7 @@ class EmbeddingNetwork(object):
                 sys.stdout.flush()
                 sys.stdout.write("\n")
             elif self.verbose == 1:
-                print status
+                print(status)
         return costs
 
     def infer(self, X):
@@ -366,7 +366,7 @@ class AdversarialNetwork(object):
                 sys.stdout.flush()
                 sys.stdout.write("\n")
             elif self.verbose == 1:
-                print status
+                print(status)
         return costs
 
     def infer_iterator(self, X):

@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 from collections import Counter
 
 from foxhound.utils import numpy_array
@@ -27,7 +26,7 @@ def OneHot(X, n=None, negative_class=0.):
     return Xoh
 
 def SeqPadded(seqs):
-    lens = map(len, seqs)
+    lens = [len(seq) for seq in seqs]
     max_len = max(lens)
     seqs_padded = []
     for seq, seq_len in zip(seqs, lens):
@@ -151,7 +150,6 @@ def StringToCharacterCNNRep(X, max_len, encoder):
         if l != max_len:
             x = np.concatenate([x, np.zeros((max_len-l, nc))])
         Xt.append(x)
-    # return np.asarray(Xt).reshape(len(Xt), 1, max_len, nc)
     return np.asarray(Xt).transpose(0, 2, 1)[:, :, :, np.newaxis]
 
 def StringToCharacterCNNIDXRep(X, max_len, encoder):
@@ -163,7 +161,6 @@ def StringToCharacterCNNIDXRep(X, max_len, encoder):
         if l != max_len:
             x = np.concatenate([x, np.zeros((max_len-l))])
         Xt.append(x)
-    # print np.asarray(Xt).shape
     return np.asarray(Xt).transpose(1, 0)
 
 def MorphTokenize(X, encoder, max_encoder_len):
@@ -188,13 +185,8 @@ def StringToCharacterCNNRNNRep(X, encoder):
     Xt = []
     max_len = max([len(x) for x in X])
     for x in X:
-<<<<<<< Updated upstream
-        x = [encoder.get(c, 0) for c in x]
-        x = one_hot(x, n=nc)
-=======
         x = [encoder.get(c, 2) for c in x]
         x = OneHot(x, n=nc)
->>>>>>> Stashed changes
         l = len(x)
         if l != max_len:
             x = np.concatenate([np.zeros((max_len-l, nc)), x])

@@ -21,7 +21,6 @@ class Maxout(object):
         elif x.ndim == 4:
             x = T.max([x[:, n::self.n_pool, :, :] for n in range(self.n_pool)], axis=0)
         elif x.ndim == 3:
-            print 'assuming standard rnn 3tensor'
             x = T.max([x[:, :, n::self.n_pool] for n in range(self.n_pool)], axis=0)
         return x
 
@@ -53,15 +52,12 @@ class MaskedConvSoftmax(object):
         e_x = T.exp(x - x.max(axis=2, keepdims=True))
         e_x = e_x*m.dimshuffle(0, 'x', 1, 'x')
         return e_x / e_x.sum(axis=2, keepdims=True)
-        # return e_x / T.clip(e_x.sum(axis=2, keepdims=True), 1e-6, 1e6)
 
 class ELU(object):
     def __init__(self):
         pass
 
     def __call__(self, x):
-        # t = x >= 0
-        # return t*x+(1-t)*(T.exp(x)-1)
         return T.switch(T.ge(x, 0), x, T.exp(x)-1)
 
 class Rectify(object):

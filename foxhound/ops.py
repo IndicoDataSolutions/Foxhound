@@ -1,16 +1,18 @@
+import numpy as np
 import theano
 import theano.tensor as T
-import inits
-import activations
-import updates
-import numpy as np
-from theano.tensor.extra_ops import repeat
-from theano.tensor.signal.downsample import max_pool_2d
-from theano.sandbox.cuda.dnn import dnn_conv, dnn_pool
 
-from utils import instantiate
-from foxhound.theano_utils import shared0s, sharedX
 from foxhound.rng import t_rng
+from foxhound.theano_utils import shared0s, sharedX
+from foxhound.utils import instantiate
+import foxhound.activations as activations
+import foxhound.inits as inits
+import foxhound.updates as updates
+
+from theano.gpuarray.dnn import dnn_conv, dnn_pool
+from theano.tensor.extra_ops import repeat
+from theano.tensor.signal import pool
+
 
 def same_pad(n):
     return int(np.floor(n / 2.))
@@ -19,7 +21,6 @@ class Input(object):
 
     def __init__(self, shape, dtype=theano.config.floatX):
         self.X = T.TensorType(dtype, (False,)*(len(shape)))()
-        print self.X.type
         self.out_shape = shape
         self.dtype = dtype
 
@@ -38,7 +39,6 @@ class Flatten(object):
             self.out_shape = self.in_shape
         else:
             self.out_shape = self.in_shape[:self.axes-1] + [np.prod(self.in_shape[self.axes-1:])]
-        print self.out_shape
 
     def op(self, state):
         X = self.l_in.op(state=state)
@@ -60,7 +60,6 @@ class Embedding(object):
             self.in_shape[1],
             self.dim
         ]
-        print self.out_shape
 
     def init(self):
         self.w = self.init_fn((self.n_embed, self.dim))
@@ -89,11 +88,10 @@ class MaxPool(object):
             int(np.ceil(float(self.in_shape[2]) / self.shape[0])),
             int(np.ceil(float(self.in_shape[3]) / self.shape[1]))
         ]
-        print self.out_shape
 
     def op(self, state):
         X = self.l_in.op(state=state)
-        return max_pool_2d(X, self.shape)
+        return pool.pool_2d(X, self.shape)
 
 class CUDNNPool(object):
 
@@ -121,7 +119,6 @@ class CUDNNPool(object):
             (self.in_shape[2] - self.shape[0] + self.pad[0]*2) // self.stride[0] + 1,
             (self.in_shape[3] - self.shape[1] + self.pad[1]*2) // self.stride[1] + 1
         ]
-        print self.out_shape
 
     def op(self, state):
         X = self.l_in.op(state=state)
@@ -130,7 +127,7 @@ class CUDNNPool(object):
 class FilterPool2D(object):
 
     def __init__(self, fn=lambda x:T.mean(x, axis=2)):
-        if isinstance(fn, basestring):
+        if isinstance(fn, str):
             if fn == 'rms':
                 fn = lambda x:T.sqrt(T.mean(x*x, axis=2) + 1e-6)
             elif fn == 'max':
@@ -148,7 +145,6 @@ class FilterPool2D(object):
             self.in_shape[0],
             self.in_shape[1],
         ]
-        print self.out_shape
 
     def op(self, state):
         X = self.l_in.op(state=state)
@@ -167,11 +163,9 @@ class ConvLPNorm(object):
             self.in_shape[0],
             self.in_shape[1],
         ]
-        print self.out_shape
 
     def init(self):
         self.lpn = self.init_fn((self.in_shape[1]))
-        # self.lpn = inits.Constant(c=-5)((self.in_shape[1]))
         self.params = [self.lpn]
 
     def op(self, state):
@@ -199,11 +193,9 @@ class EmbeddingLPNorm(object):
             self.in_shape[1],
             self.in_shape[2],
         ]
-        print self.out_shape
 
     def init(self):
         self.lpn = self.init_fn((self.in_shape[2]))
-        # self.lpn = inits.Constant(c=-5)((self.in_shape[1]))
         self.params = [self.lpn]
 
     def op(self, state):
@@ -249,7 +241,6 @@ class Conv(object):
             (self.in_shape[2] - self.shape[0] + self.pad[0] * 2)/self.stride[0] + 1,
             (self.in_shape[3] - self.shape[1] + self.pad[1] * 2)/self.stride[1] + 1
         ]
-        print self.out_shape
 
     def init(self):
         self.w = self.init_fn((self.n, self.in_shape[1], self.shape[0], self.shape[1]))
@@ -293,7 +284,6 @@ class CPUConv(object):
             self.in_shape[2],
             self.in_shape[3]
         ]
-        print self.out_shape
 
     def init(self):
         self.w = self.init_fn((self.n, self.in_shape[1], self.shape[0], self.shape[1]))
@@ -321,7 +311,6 @@ class Variational(object):
         self.l_in = l_in
         self.in_shape = l_in.out_shape
         self.out_shape = [self.in_shape[0], self.dim]
-        print self.out_shape
 
     def init(self):
         self.wmu = self.init_fn((self.in_shape[-1], self.out_shape[-1]))
@@ -334,7 +323,6 @@ class Variational(object):
         self.log_sigma = 0.5 * T.dot(X, self.wsigma)
         if state['sample']:
             Z = state['sample']
-            # Z = t_rng.normal(self.log_sigma.shape)
         else:
             Z = self.mu + T.exp(self.log_sigma) * t_rng.normal(self.log_sigma.shape)
         return Z
@@ -357,7 +345,6 @@ class Project(object):
             self.out_shape = self.in_shape[:-1] + [self.dim]
         else:
             self.out_shape = [self.in_shape[0], self.dim]
-        print self.out_shape
 
     def init(self):
         self.w = self.init_fn((self.in_shape[-1], self.out_shape[-1]))
@@ -433,11 +420,6 @@ class Activation(object):
     def connect(self, l_in):
         self.l_in = l_in
         self.in_shape = l_in.out_shape
-        # if isinstance(self.activation, activations.ConvMaxout) or isinstance(self.activation, activations.ConvRMSPool):
-        #     print 'called'
-        #     self.out_shape = self.in_shape
-        #     self.out_shape[1] = self.out_shape[1]/2
-        # else:
         self.out_shape = self.in_shape
 
     def init(self):
@@ -545,7 +527,6 @@ class Dimshuffle(object):
         self.l_in = l_in
         self.in_shape = l_in.out_shape
         self.out_shape = [self.in_shape[idx] for idx in self.shuffle]
-        print self.out_shape
 
     def op(self, state):
         X = self.l_in.op(state=state)
@@ -577,7 +558,6 @@ class Slice(object):
         self.l_in = l_in
         self.in_shape = l_in.out_shape
         self.out_shape = self.shape_fn(self.in_shape)
-        print self.out_shape
 
     def op(self, state):
         X = self.l_in.op(state=state)
@@ -608,7 +588,6 @@ class Op(object):
         self.l_in = l_in
         self.in_shape = l_in.out_shape
         self.out_shape = self.shape_fn(self.in_shape)
-        print self.out_shape
 
     def op(self, state):
         X = self.l_in.op(state=state)
@@ -629,14 +608,11 @@ class RNN(object):
         self.l_in = l_in
         self.in_shape = l_in.out_shape
         self.out_shape = self.in_shape[:-1] + [self.dim]
-        print self.out_shape
 
     def init(self):
         self.w = self.proj_init_fn((self.in_shape[-1], self.dim))
         self.u = self.rec_init_fn((self.dim, self.dim))
         self.b = self.bias_init_fn((self.dim))
-        # self.h0 = shared0s((1, self.dim))
-        # self.params = [self.w, self.u, self.b, self.h0]
         self.params = [self.w, self.u, self.b]
 
     def step(self, x_t, h_tm1):
@@ -648,7 +624,6 @@ class RNN(object):
         x = T.dot(X, self.w) + self.b
         out, _ = theano.scan(self.step,
             sequences=[x],
-            # outputs_info=[repeat(self.h0, x.shape[1], axis=0)],
             outputs_info=[T.zeros((x.shape[1], self.dim), dtype=theano.config.floatX)],
         )
         return out
@@ -672,7 +647,6 @@ class GRU(object):
         self.l_in = l_in
         self.in_shape = l_in.out_shape
         self.out_shape = self.in_shape[:-1] + [self.dim]
-        print self.out_shape
 
     def init(self):
         self.w_z = self.proj_init_fn((self.in_shape[-1], self.dim))
@@ -726,7 +700,6 @@ class LSTM(object):
         self.l_in = l_in
         self.in_shape = l_in.out_shape
         self.out_shape = self.in_shape[:-1] + [self.dim]
-        print self.out_shape
 
     def init(self):
 
