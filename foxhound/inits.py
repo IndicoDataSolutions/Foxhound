@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from time import time
-from sklearn.externals import joblib
+import joblib
 
 import theano
 import theano.tensor as T
