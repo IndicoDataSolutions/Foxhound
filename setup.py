@@ -17,6 +17,6 @@ setup(
     install_requires=[
         "numpy >= 1.8.1",
         "Theano >= 0.6.0",
-        "joblib == 0.14.1",
+        "joblib == 1.2.0",
     ],
 )
