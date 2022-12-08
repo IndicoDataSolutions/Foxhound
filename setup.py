@@ -1,8 +1,8 @@
-from setuptools import setup, find_packages    
+from setuptools import setup, find_packages
 
 setup(
-    name='foxhound', 
-    version='0.0.1',
+    name='foxhound',
+    version='0.0.2',
     packages=find_packages(),
     description="""
         Scikit learn inspired library for gpu-accelerated machine learning
@@ -17,6 +17,6 @@ setup(
     install_requires=[
         "numpy >= 1.8.1",
         "Theano >= 0.6.0",
-        "joblib == 0.14.1",
+        "joblib >= 1.2.0",
     ],
 )
